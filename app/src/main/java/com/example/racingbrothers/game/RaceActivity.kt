@@ -48,6 +48,9 @@ class RaceActivity : FragmentActivity(), AndroidFragmentApplication.Callbacks, R
     @Volatile
     private var brakePressed = false
 
+    @Volatile
+    private var nitroPressed = false
+
     private var graphicsQuality: GraphicsQuality = GraphicsQuality.HIGH
     private var initialCameraMode: CameraMode = CameraMode.CLOSE_CHASE
     private var gdxFragment: RaceGdxFragment? = null
@@ -97,6 +100,7 @@ class RaceActivity : FragmentActivity(), AndroidFragmentApplication.Callbacks, R
                         onSteerRightChanged = { steerRight = it },
                         onThrottleChanged = { throttlePressed = it },
                         onBrakeChanged = { brakePressed = it },
+                        onNitroChanged = { nitroPressed = it },
                         onToggleCamera = {
                             gdxFragment?.gameInstance?.let { game ->
                                 game.requestCameraToggle()
@@ -153,7 +157,8 @@ class RaceActivity : FragmentActivity(), AndroidFragmentApplication.Callbacks, R
         return RacingInputState(
             throttle = if (throttlePressed) 1f else 0f,
             brake = if (brakePressed) 1f else 0f,
-            steer = steer
+            steer = steer,
+            nitro = nitroPressed
         )
     }
 

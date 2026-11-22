@@ -116,7 +116,9 @@ data class RemoteCarTelemetry(
     val completedLaps: Int,
     val nextCheckpoint: Int,
     val seq: Long,
-    val receivedAtMs: Long
+    val receivedAtMs: Long,
+    val nitroActive: Boolean = false,
+    val drifting: Boolean = false
 )
 
 data class PlayerRaceResult(
@@ -191,7 +193,9 @@ object ProtocolCodec {
         steerAngleDeg: Float,
         completedLaps: Int,
         nextCheckpoint: Int,
-        clientTimeMs: Long
+        clientTimeMs: Long,
+        nitroActive: Boolean = false,
+        drifting: Boolean = false
     ): String = JSONObject().apply {
         put("v", ProtocolConstants.PROTOCOL_VERSION)
         put("type", "player_state")
@@ -203,6 +207,8 @@ object ProtocolCodec {
         put("steer", steerAngleDeg.toDouble())
         put("laps", completedLaps)
         put("checkpoint", nextCheckpoint)
+        put("nitro", nitroActive)
+        put("drifting", drifting)
         put("t", clientTimeMs)
     }.toString()
 

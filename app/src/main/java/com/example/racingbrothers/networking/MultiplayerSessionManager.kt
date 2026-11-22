@@ -565,7 +565,9 @@ class MultiplayerSessionManager(
                     completedLaps = json.optInt("laps", 0),
                     nextCheckpoint = json.optInt("checkpoint", 1),
                     seq = seq,
-                    receivedAtMs = System.currentTimeMillis()
+                    receivedAtMs = System.currentTimeMillis(),
+                    nitroActive = json.optBoolean("nitro", false),
+                    drifting = json.optBoolean("drifting", false)
                 )
                 _state.update { it.copy(remoteTelemetry = telemetry) }
             }
@@ -678,7 +680,9 @@ class MultiplayerSessionManager(
         speedMps: Float,
         steerAngleDeg: Float,
         completedLaps: Int,
-        nextCheckpoint: Int
+        nextCheckpoint: Int,
+        nitroActive: Boolean = false,
+        drifting: Boolean = false
     ) {
         val conn = activeConnection ?: return
         if (_state.value.phase != RoomPhase.RACING) return
@@ -693,7 +697,9 @@ class MultiplayerSessionManager(
                 steerAngleDeg = steerAngleDeg,
                 completedLaps = completedLaps,
                 nextCheckpoint = nextCheckpoint,
-                clientTimeMs = System.currentTimeMillis()
+                clientTimeMs = System.currentTimeMillis(),
+                nitroActive = nitroActive,
+                drifting = drifting
             )
         )
     }

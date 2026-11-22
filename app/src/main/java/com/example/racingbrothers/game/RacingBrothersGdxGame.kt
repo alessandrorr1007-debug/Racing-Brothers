@@ -2,12 +2,18 @@ package com.example.racingbrothers.game
 
 import com.badlogic.gdx.ApplicationAdapter
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.PerspectiveCamera
+import com.badlogic.gdx.graphics.VertexAttributes
 import com.badlogic.gdx.graphics.g3d.Environment
+import com.badlogic.gdx.graphics.g3d.Material
+import com.badlogic.gdx.graphics.g3d.Model
 import com.badlogic.gdx.graphics.g3d.ModelBatch
+import com.badlogic.gdx.graphics.g3d.ModelInstance
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight
+import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.example.racingbrothers.audio.ArcadeSoundManager
 import com.example.racingbrothers.camera.CameraMode
 import com.example.racingbrothers.camera.CameraRig
@@ -32,7 +38,9 @@ data class RaceHudSnapshot(
     val positionRank: Int = 1,
     val elapsedMs: Long = 0L,
     val cameraMode: CameraMode = CameraMode.CLOSE_CHASE,
-    val fps: Int = 60
+    val fps: Int = 60,
+    val nitroCharge: Float = 1f,
+    val nitroActive: Boolean = false
 )
 
 /**
@@ -50,6 +58,11 @@ class RacingBrothersGdxGame(
 ) : ApplicationAdapter() {
 
     private lateinit var modelBatch: ModelBatch
+    private lateinit var flameModel: Model
+    private lateinit var smokeModel: Model
+    private lateinit var flames: List<ModelInstance>
+    private lateinit var smoke: List<ModelInstance>
+    private var effectsTime = 0f
     private lateinit var camera: PerspectiveCamera
     private lateinit var environment: Environment
 
@@ -88,6 +101,20 @@ class RacingBrothersGdxGame(
 
     override fun create() {
         modelBatch = ModelBatch()
+        val effectMeshes = ModelBuilder()
+        val effectAttributes = (VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal).toLong()
+        flameModel = effectMeshes.createCone(
+            0.35f, 1.45f, 0.35f, 6,
+            Material(ColorAttribute.createEmissive(Color(0.08f, 0.55f, 1f, 1f))),
+            effectAttributes
+        )
+        smokeModel = effectMeshes.createSphere(
+            0.8f, 0.5f, 0.8f, 5, 3,
+            Material(ColorAttribute.createDiffuse(Color(0.36f, 0.40f, 0.47f, 1f))),
+            effectAttributes
+        )
+        flames = List(2) { ModelInstance(flameModel) }
+        smoke = List(4) { ModelInstance(smokeModel) }
 
         camera = PerspectiveCamera(
             initialCameraMode.fieldOfView,
@@ -229,7 +256,9 @@ class RacingBrothersGdxGame(
                 speedMps = localState.speedMps,
                 steerAngleDeg = localState.steerAngleDeg,
                 completedLaps = localState.completedLaps,
-                nextCheckpoint = localState.nextCheckpoint
+                nextCheckpoint = localState.nextCheckpoint,
+                nitroActive = localState.nitroActive,
+                drifting = localState.drifting
             )
         }
 
@@ -290,6 +319,16 @@ class RacingBrothersGdxGame(
                 modelBatch.render(w.instance, environment)
             }
         }
+        effectsTime = (effectsTime + dt) % 12f
+        if (canDrive) {
+            renderDrivingEffects(0, localState.x, localState.z, localState.headingRad, localState.nitroActive, localState.drifting)
+        }
+        val opponentEffects = session.remoteTelemetry
+        if (session.phase == RoomPhase.RACING && remoteInitialized && opponentEffects != null &&
+            session.opponentPlayer?.connected == true && System.currentTimeMillis() - opponentEffects.receivedAtMs < 300L
+        ) {
+            renderDrivingEffects(1, remoteX, remoteZ, remoteHeading, opponentEffects.nitroActive, opponentEffects.drifting)
+        }
         modelBatch.end()
 
         // 7. Publish HUD snapshot at ~15 Hz so Compose HUD stays crisp with minimal recomposition
@@ -326,9 +365,39 @@ class RacingBrothersGdxGame(
                     positionRank = rank,
                     elapsedMs = elapsed,
                     cameraMode = cameraRig.mode,
-                    fps = Gdx.graphics.framesPerSecond
+                    fps = Gdx.graphics.framesPerSecond,
+                    nitroCharge = localState.nitroCharge,
+                    nitroActive = localState.nitroActive
                 )
             )
+        }
+    }
+
+    private fun renderDrivingEffects(index: Int, x: Float, z: Float, heading: Float, nitro: Boolean, drifting: Boolean) {
+        val forwardX = sin(heading)
+        val forwardZ = cos(heading)
+        if (nitro) {
+            val flame = flames[index]
+            flame.transform.setToTranslation(x - forwardX * 2.65f, 0.32f, z - forwardZ * 2.65f)
+                .rotate(0f, 1f, 0f, Math.toDegrees(heading.toDouble()).toFloat())
+                .rotate(1f, 0f, 0f, -90f)
+                .scale(1f, 0.82f + 0.18f * sin(effectsTime * 35f), 1f)
+            modelBatch.render(flame, environment)
+        }
+        if (drifting && graphicsQuality != GraphicsQuality.LOW) {
+            for (particle in 0..1) {
+                val puff = smoke[index * 2 + particle]
+                val age = (effectsTime * 3f + particle * 0.5f) % 1f
+                val offset = 2f + age * 2.4f
+                val side = if (particle == 0) -0.72f else 0.72f
+                val size = 0.6f + age * 0.95f
+                puff.transform.setToTranslation(
+                    x - forwardX * offset + forwardZ * side,
+                    0.22f + age * 0.56f,
+                    z - forwardZ * offset - forwardX * side
+                ).scale(size, size, size)
+                modelBatch.render(puff, environment)
+            }
         }
     }
 
@@ -351,6 +420,8 @@ class RacingBrothersGdxGame(
 
     override fun dispose() {
         modelBatch.dispose()
+        flameModel.dispose()
+        smokeModel.dispose()
         trackWorld?.dispose()
         localCarRig?.dispose()
         remoteCarRig?.dispose()

@@ -109,7 +109,8 @@ fun RaceHudOverlay(
     onBrakeChanged: (Boolean) -> Unit,
     onToggleCamera: () -> Unit,
     onRequestRematch: () -> Unit,
-    onExitToMenu: () -> Unit
+    onExitToMenu: () -> Unit,
+    onNitroChanged: (Boolean) -> Unit = {}
 ) {
     val fontScale = LocalDensity.current.fontScale
     val bannerMessage = when {
@@ -213,7 +214,10 @@ fun RaceHudOverlay(
                     onSteerLeftChanged = onSteerLeftChanged,
                     onSteerRightChanged = onSteerRightChanged,
                     onBrakeChanged = onBrakeChanged,
-                    onThrottleChanged = onThrottleChanged
+                    onThrottleChanged = onThrottleChanged,
+                    nitroCharge = hudSnapshot.nitroCharge,
+                    nitroActive = hudSnapshot.nitroActive,
+                    onNitroChanged = onNitroChanged
                 )
             }
         }
@@ -389,7 +393,10 @@ private fun RaceControls(
     onSteerLeftChanged: (Boolean) -> Unit,
     onSteerRightChanged: (Boolean) -> Unit,
     onBrakeChanged: (Boolean) -> Unit,
-    onThrottleChanged: (Boolean) -> Unit
+    onThrottleChanged: (Boolean) -> Unit,
+    nitroCharge: Float,
+    nitroActive: Boolean,
+    onNitroChanged: (Boolean) -> Unit
 ) {
     val gap = if (compact) ((viewportWidth - 192.dp) / 4f).coerceIn(0.dp, 6.dp) else 12.dp
     val speedometerWidth = if (compact) 76.dp else 96.dp
@@ -404,6 +411,29 @@ private fun RaceControls(
     val throttleHeight = if (compact) 68.dp else 92.dp
 
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.align(Alignment.End),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val nitroAccent = if (nitroActive) NeonCyan else ElectricBlue
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { nitroCharge },
+                modifier = Modifier.width(60.dp).testTag("hud_nitro_charge"),
+                color = nitroAccent,
+                trackColor = TrackBorderBlue
+            )
+            HoldTouchButton(
+                label = "NITRO",
+                icon = null,
+                accentColor = nitroAccent,
+                testTag = "control_nitro",
+                width = 78.dp,
+                height = 48.dp,
+                compact = true,
+                onHoldChange = onNitroChanged
+            )
+        }
         if (!speedometerInline) {
             RaceSpeedometer(speedKmh, speedometerWidth, Modifier.align(Alignment.End))
         }

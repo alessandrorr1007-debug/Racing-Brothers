@@ -60,6 +60,24 @@ class RacingPhysicsAndCameraTest {
     }
 
     @Test
+    fun `nitro consumes charge and a controlled drift restores it`() {
+        val physics = ArcadeCarPhysics()
+        val start = physics.createStartingState(0).copy(speedMps = BalancedV1Stats.MAX_SPEED_MPS)
+        val boosted = physics.step(start, RacingInputState(nitro = true), 0.05f, canDrive = true).first
+        assertTrue(boosted.nitroActive)
+        assertTrue(boosted.speedMps > BalancedV1Stats.MAX_SPEED_MPS)
+        assertTrue(boosted.nitroCharge < 1f)
+        val uncharged = physics.step(start.copy(nitroCharge = 0f), RacingInputState(nitro = true), 0.05f, canDrive = true).first
+        assertFalse(uncharged.nitroActive)
+        val drift = physics.step(
+            start.copy(speedMps = 30f, lateralSpeedMps = 5f, nitroCharge = 0.5f),
+            RacingInputState(steer = 1f), 0.05f, canDrive = true
+        ).first
+        assertTrue(drift.drifting)
+        assertTrue(drift.nitroCharge > 0.5f)
+    }
+
+    @Test
     fun `brake brings low forward speed to zero before engaging reverse`() {
         val physics = ArcadeCarPhysics()
         val moving = physics.createStartingState(0).copy(speedMps = 0.1f)

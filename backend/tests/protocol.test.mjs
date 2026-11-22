@@ -358,8 +358,10 @@ test("3. Two independent clients join, sync car/character, reject 3rd player, re
   assert.ok(lastMsgOfType(c2, "race_started"));
 
   // Telemetry state sync & duplicate sequence rejection
-  sendMsg(c1, "player_state", { seq: 1, x: 2, z: 25, heading: 0, speed: 30, steer: 0 });
+  sendMsg(c1, "player_state", { seq: 1, x: 2, z: 25, heading: 0, speed: 63, steer: 0, nitro: true, drifting: true });
   assert.equal(lastMsgOfType(c2, "state_snapshot")?.seq, 1);
+  assert.equal(lastMsgOfType(c2, "state_snapshot")?.nitro, true);
+  assert.equal(lastMsgOfType(c2, "state_snapshot")?.drifting, true);
   const countBeforeDup = c2.received.filter((m) => m.type === "state_snapshot").length;
   sendMsg(c1, "player_state", { seq: 1, x: 99, z: 99, heading: 0, speed: 30, steer: 0 });
   assert.equal(c2.received.filter((m) => m.type === "state_snapshot").length, countBeforeDup);

@@ -627,6 +627,8 @@ export class RaceRoomDO {
         heading: msg.heading,
         speed: msg.speed,
         steer: msg.steer,
+        nitro: msg.nitro === true,
+        drifting: msg.drifting === true,
         laps: player.completedLaps,
         checkpoint: player.nextCheckpoint,
         serverTimeMs: Date.now()

@@ -16,7 +16,8 @@ import kotlin.math.sin
 data class RacingInputState(
     val throttle: Float = 0f,   // 0..1
     val brake: Float = 0f,      // 0..1 (brake when moving forward, reverse when stopped)
-    val steer: Float = 0f       // -1 (left) .. +1 (right)
+    val steer: Float = 0f,      // -1 (left) .. +1 (right)
+    val nitro: Boolean = false
 )
 
 data class CarPhysicsState(
@@ -30,7 +31,10 @@ data class CarPhysicsState(
     val nextCheckpoint: Int = 1,
     val finished: Boolean = false,
     val collidedWithWall: Boolean = false,
-    val lateralSpeedMps: Float = 0f
+    val lateralSpeedMps: Float = 0f,
+    val nitroCharge: Float = 1f,
+    val nitroActive: Boolean = false,
+    val drifting: Boolean = false
 )
 
 data class CheckpointEvent(
@@ -73,17 +77,20 @@ class ArcadeCarPhysics {
         val throttle = if (canDrive) input.throttle.coerceIn(0f, 1f) else 0f
         val brake = if (canDrive) input.brake.coerceIn(0f, 1f) else 0f
         val steerInput = if (canDrive) input.steer.coerceIn(-1f, 1f) else 0f
+        val nitroActive = canDrive && input.nitro && brake < 0.01f &&
+            state.speedMps >= 0f && state.nitroCharge > 0f
 
         var speed = state.speedMps
 
         // 1. Longitudinal acceleration, braking, reverse & natural drag
-        if (throttle > 0.01f && brake < 0.01f) {
+        if ((throttle > 0.01f || nitroActive) && brake < 0.01f) {
             // Progressive arcade acceleration curve (snappy launch, tapering near top speed)
             val speedRatio = (speed / BalancedV1Stats.MAX_SPEED_MPS).coerceIn(0f, 1f)
             val accelScale = 1.15f - 0.45f * speedRatio
             val acceleration = if (speed < 0f) BalancedV1Stats.BRAKE_DECEL_MPS2
             else BalancedV1Stats.ACCELERATION_MPS2 * accelScale
             speed += acceleration * throttle * dt
+            if (nitroActive) speed += 22f * dt
         } else if (brake > 0.01f) {
             if (speed > 0f) {
                 speed = (speed - BalancedV1Stats.BRAKE_DECEL_MPS2 * brake * dt).coerceAtLeast(0f)
@@ -108,7 +115,9 @@ class ArcadeCarPhysics {
         val corneringDrag = steering * steering * ((abs(speed) - 12f) / 10f).coerceIn(0f, 1f)
         speed -= sign(speed) * corneringDrag * 3.8f * dt
 
-        speed = speed.coerceIn(-BalancedV1Stats.MAX_REVERSE_MPS, BalancedV1Stats.MAX_SPEED_MPS)
+        val speedLimit = if (nitroActive) NITRO_MAX_SPEED_MPS else
+            maxOf(BalancedV1Stats.MAX_SPEED_MPS, state.speedMps - 12f * dt)
+        speed = speed.coerceIn(-BalancedV1Stats.MAX_REVERSE_MPS, speedLimit)
 
         // 2. Steering (only turns when car has velocity; inverted cleanly in reverse)
         val speedFactor = (abs(speed) / 9f).coerceIn(0f, 1f)
@@ -203,6 +212,13 @@ class ArcadeCarPhysics {
             }
         }
 
+        val drifting = canDrive && !hitWall && speed > 18f && abs(lateralSpeed) > 1.1f
+        val nitroCharge = when {
+            nitroActive -> state.nitroCharge - dt / 2.8f
+            drifting && !input.nitro ->
+                state.nitroCharge + ((abs(lateralSpeed) - 1.1f) / 6f).coerceIn(0f, 1f) * dt * 0.55f
+            else -> state.nitroCharge
+        }.coerceIn(0f, 1f)
         val updated = CarPhysicsState(
             x = nextX,
             z = nextZ,
@@ -214,12 +230,17 @@ class ArcadeCarPhysics {
             nextCheckpoint = nextCheckpoint,
             finished = finished,
             collidedWithWall = hitWall,
-            lateralSpeedMps = if (hitWall) 0f else lateralSpeed
+            lateralSpeedMps = if (hitWall) 0f else lateralSpeed,
+            nitroCharge = nitroCharge,
+            nitroActive = nitroActive,
+            drifting = drifting
         )
         return updated to checkpointEvent
     }
 
     companion object {
+        const val NITRO_MAX_SPEED_MPS = 63f
+
         fun normalizeAngle(angleRad: Float): Float {
             var a = angleRad
             val twoPi = (2.0 * Math.PI).toFloat()
