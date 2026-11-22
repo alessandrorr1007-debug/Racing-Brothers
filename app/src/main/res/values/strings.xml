@@ -82,7 +82,11 @@
     <string name="results_winner_banner">GANADOR: %1$s</string>
     <string name="results_total_time">TIEMPO TOTAL</string>
     <string name="btn_rematch">REVANCHA</string>
-    <string name="rematch_waiting">REVANCHA (%1$d/2)</string>
+    <string name="rematch_waiting">REVANCHA (%1$d/%2$d)</string>
+    <string name="room_capacity_title">Capacidad de la sala</string>
+    <string name="room_capacity_option">%1$d jugadores</string>
+    <string name="lobby_guest_label">JUGADOR %1$d · INVITADO</string>
+    <string name="lobby_need_capacity_ready">Esperando a que estén listos los %1$d jugadores.</string>
     <string name="btn_back_to_menu">VOLVER AL MENÚ</string>
     <string name="race_reconnecting_banner">Conexión interrumpida — reconectando con la sala…</string>
     <string name="race_opponent_disconnected">Rival desconectado — esperando reconexión…</string>

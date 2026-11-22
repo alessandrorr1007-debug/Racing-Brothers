@@ -6,7 +6,8 @@ import org.json.JSONObject
 object ProtocolConstants {
     const val PROTOCOL_VERSION = 1
     const val ROOM_CODE_LENGTH = 6
-    const val MAX_PLAYERS_PER_ROOM = 2
+    const val DEFAULT_ROOM_CAPACITY = 2
+    const val MAX_PLAYERS_PER_ROOM = 4
     const val MAX_MESSAGE_BYTES = 2048
     val ROOM_CODE_REGEX = Regex("^[0-9]{6}$")
 }

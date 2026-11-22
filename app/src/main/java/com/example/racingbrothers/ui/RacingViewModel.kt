@@ -124,12 +124,13 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun createRoom() {
+    fun createRoom(roomCapacity: Int = 2) {
         val prefs = preferences.value
         sessionManager.createRoom(
             vehicleId = prefs.selectedVehicleId,
             colorId = prefs.selectedColorId,
-            characterId = prefs.selectedCharacterId
+            characterId = prefs.selectedCharacterId,
+            roomCapacity = roomCapacity
         )
     }
 

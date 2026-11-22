@@ -4,10 +4,20 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -66,12 +76,12 @@ fun RacingBrothersApp(
         startDestination = RacingRoutes.MAIN_MENU
     ) {
         composable(RacingRoutes.MAIN_MENU) {
+            var selectingCapacity by rememberSaveable { mutableStateOf(false) }
             MainMenuScreen(
                 preferences = prefs,
                 onCreateRoomClick = {
                     viewModel.playClick()
-                    viewModel.createRoom()
-                    navController.navigate(RacingRoutes.CREATE_ROOM)
+                    selectingCapacity = true
                 },
                 onJoinRoomClick = {
                     viewModel.playClick()
@@ -87,16 +97,51 @@ fun RacingBrothersApp(
                     viewModel.saveSettings(sound, quality, cam, url)
                 }
             )
+            if (selectingCapacity) {
+                AlertDialog(
+                    onDismissRequest = { selectingCapacity = false },
+                    title = { Text(stringResource(R.string.room_capacity_title)) },
+                    text = {
+                        Column {
+                            for (capacity in 2..4) {
+                                TextButton(
+                                    modifier = Modifier.testTag("room_capacity_$capacity"),
+                                    onClick = {
+                                        selectingCapacity = false
+                                        navController.navigate("${RacingRoutes.CREATE_ROOM}/$capacity")
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.room_capacity_option, capacity))
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { selectingCapacity = false }) {
+                            Text(stringResource(R.string.btn_back))
+                        }
+                    }
+                )
+            }
         }
 
-        composable(RacingRoutes.CREATE_ROOM) {
+        composable("${RacingRoutes.CREATE_ROOM}/{capacity}") { entry ->
+            val capacity = entry.arguments?.getString("capacity")?.toIntOrNull()?.coerceIn(2, 4) ?: 2
+            var started by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(capacity) {
+                if (!started) {
+                    started = true
+                    viewModel.createRoom(capacity)
+                }
+            }
             CreateRoomScreen(
                 multiplayerState = mpState,
                 onStartHealthMonitor = { viewModel.startHealthMonitor() },
                 onStopHealthMonitor = { viewModel.stopHealthMonitor() },
                 onRetryCreate = {
                     viewModel.playClick()
-                    viewModel.createRoom()
+                    viewModel.createRoom(capacity)
                 },
                 onContinueToGarage = {
                     viewModel.playClick()

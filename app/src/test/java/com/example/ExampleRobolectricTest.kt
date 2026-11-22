@@ -125,6 +125,8 @@ class ExampleRobolectricTest {
 
         // 1. Create Room -> displays generated 6-digit numeric code preserving leading zeros
         composeTestRule.onNodeWithTag("btn_create_room").performClick()
+        waitUntilDisplayed("room_capacity_2")
+        composeTestRule.onNodeWithTag("room_capacity_2").performClick()
         waitUntilDisplayed("created_room_code")
         composeTestRule.onNodeWithTag("created_room_code").assertTextContains("004 - 821", substring = true)
         composeTestRule.onNodeWithTag("btn_copy_code").assertIsDisplayed()

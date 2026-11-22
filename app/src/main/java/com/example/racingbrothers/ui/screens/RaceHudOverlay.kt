@@ -116,7 +116,8 @@ fun RaceHudOverlay(
     val bannerMessage = when {
         sessionState.connectionStatus == ConnectionStatus.RECONNECTING ->
             stringResource(R.string.race_reconnecting_banner)
-        sessionState.opponentPlayer?.connected == false && sessionState.phase != RoomPhase.FINISHED ->
+        sessionState.players.any { it.playerId != sessionState.localPlayerId && !it.connected } &&
+            sessionState.phase != RoomPhase.FINISHED ->
             stringResource(R.string.race_opponent_disconnected)
         else -> null
     }
@@ -228,6 +229,7 @@ fun RaceHudOverlay(
                 localPlayerId = sessionState.localPlayerId,
                 rematchVotes = sessionState.rematchVotes,
                 localRequestedRematch = sessionState.localPlayer?.rematchRequested == true,
+                roomCapacity = sessionState.roomCapacity,
                 onRequestRematch = onRequestRematch,
                 onExitToMenu = onExitToMenu
             )
@@ -257,7 +259,7 @@ private fun RaceTelemetry(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = "${hudSnapshot.positionRank}°/2",
+                    text = "${hudSnapshot.positionRank}°/${hudSnapshot.playerCount}",
                     fontFamily = OrbitronFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = if (compact) 16.sp else 20.sp,
@@ -630,6 +632,7 @@ private fun RaceResultsModal(
     localPlayerId: String?,
     rematchVotes: Int,
     localRequestedRematch: Boolean,
+    roomCapacity: Int,
     onRequestRematch: () -> Unit,
     onExitToMenu: () -> Unit
 ) {
@@ -780,7 +783,7 @@ private fun RaceResultsModal(
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = if (rematchVotes > 0 || localRequestedRematch) {
-                                stringResource(R.string.rematch_waiting, rematchVotes)
+                                stringResource(R.string.rematch_waiting, rematchVotes, roomCapacity)
                             } else {
                                 stringResource(R.string.btn_rematch)
                             },

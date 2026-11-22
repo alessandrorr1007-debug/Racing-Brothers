@@ -108,12 +108,13 @@ object CircuitTrack {
     val sceneryProps: List<SceneryProp> by lazy { generateScenery() }
 
     /**
-     * Starting grid slots for Player 1 (slot 0, left) and Player 2 (slot 1, right).
+     * Staggered grid in two rows with two cars per row.
      */
     fun getStartSlot(slotIndex: Int): Triple<Float, Float, Float> {
         val start = samples.first()
-        val lateral = if (slotIndex == 0) -3.2f else 3.2f
-        val backOffset = if (slotIndex == 0) -5.5f else -7.0f
+        val slot = slotIndex.coerceIn(0, 3)
+        val lateral = if (slot % 2 == 0) -3.2f else 3.2f
+        val backOffset = -5.5f - (slot % 2) * 1.5f - (slot / 2) * 6f
         val x = start.x + start.rightX * lateral + start.dirX * backOffset
         val z = start.z + start.rightZ * lateral + start.dirZ * backOffset
         val headingRad = atan2(start.dirX, start.dirZ)

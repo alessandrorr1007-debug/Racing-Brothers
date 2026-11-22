@@ -31,6 +31,9 @@ interface WebSocketTransportListener {
 interface MultiplayerTransport {
     suspend fun checkServerHealth(httpBaseUrl: String): Boolean = true
     suspend fun createRoomHttp(httpBaseUrl: String): Result<String>
+    suspend fun createRoomHttp(httpBaseUrl: String, maxPlayers: Int): Result<String> =
+        if (maxPlayers == ProtocolConstants.DEFAULT_ROOM_CAPACITY) createRoomHttp(httpBaseUrl)
+        else Result.failure(IllegalArgumentException("El servidor no admite esta capacidad."))
     fun openRoomSocket(wsUrl: String, listener: WebSocketTransportListener): WebSocketConnection
 }
 
@@ -70,10 +73,14 @@ class OkHttpMultiplayerTransport(
         }.getOrDefault(false)
     }
 
-    override suspend fun createRoomHttp(httpBaseUrl: String): Result<String> = withContext(Dispatchers.IO) {
+    override suspend fun createRoomHttp(httpBaseUrl: String): Result<String> =
+        createRoomHttp(httpBaseUrl, ProtocolConstants.DEFAULT_ROOM_CAPACITY)
+
+    override suspend fun createRoomHttp(httpBaseUrl: String, maxPlayers: Int): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val url = "${httpBaseUrl.trimEnd('/')}/api/rooms"
-            val body = "{}".toRequestBody("application/json; charset=utf-8".toMediaType())
+            val body = JSONObject().put("maxPlayers", maxPlayers).toString()
+                .toRequestBody("application/json; charset=utf-8".toMediaType())
             val request = Request.Builder()
                 .url(url)
                 .post(body)
@@ -93,6 +100,9 @@ class OkHttpMultiplayerTransport(
                     )
                 }
                 val json = JSONObject(rawBody)
+                if (json.optInt("maxPlayers", ProtocolConstants.DEFAULT_ROOM_CAPACITY) != maxPlayers) {
+                    error("El servidor todavía no admite salas de $maxPlayers jugadores.")
+                }
                 val code = json.optString("roomCode", "")
                 if (!RoomCodeValidator.isValid(code)) {
                     error("El servidor devolvió un código de sala inválido.")

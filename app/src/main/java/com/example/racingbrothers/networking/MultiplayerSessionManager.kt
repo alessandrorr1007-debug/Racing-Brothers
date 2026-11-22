@@ -43,13 +43,14 @@ data class MultiplayerUiState(
     val countdownValue: Int? = null, // 3, 2, 1, 0 (GO)
     val raceStartedAtServerMs: Long = 0L,
     val raceResults: RaceResultsState? = null,
-    val remoteTelemetry: RemoteCarTelemetry? = null,
+    val remoteTelemetryByPlayerId: Map<String, RemoteCarTelemetry> = emptyMap(),
     val authoritativeLaps: Int = 0,
     val authoritativeNextCheckpoint: Int = 1,
     val latencyMs: Int? = null,
     val errorMessage: String? = null,
     val roomClosedReason: String? = null,
-    val rematchVotes: Int = 0
+    val rematchVotes: Int = 0,
+    val roomCapacity: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY
 ) {
     val localPlayer: PlayerSlotState?
         get() = players.firstOrNull { it.playerId == localPlayerId }
@@ -60,7 +61,7 @@ data class MultiplayerUiState(
     val canHostStartRace: Boolean
         get() = isHost &&
             phase == RoomPhase.LOBBY &&
-            players.size == ProtocolConstants.MAX_PLAYERS_PER_ROOM &&
+            players.size == roomCapacity &&
             players.all { it.connected && it.ready }
 }
 
@@ -98,7 +99,6 @@ class MultiplayerSessionManager(
 
     private val outboundSeq = AtomicLong(0L)
     private val connectionGeneration = AtomicLong(0L)
-    private var lastRemoteSeq: Long = -1L
     private var reconnectAttempts: Int = 0
     private var reconnectJob: Job? = null
     private var pingJob: Job? = null
@@ -216,7 +216,10 @@ class MultiplayerSessionManager(
         _state.update { it.copy(errorMessage = null, roomClosedReason = null) }
     }
 
-    fun createRoom(vehicleId: String, colorId: String, characterId: String) {
+    fun createRoom(
+        vehicleId: String, colorId: String, characterId: String,
+        roomCapacity: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY
+    ) {
         localVehicleId = vehicleId
         localColorId = colorId
         localCharacterId = characterId
@@ -244,7 +247,6 @@ class MultiplayerSessionManager(
             is ServerEndpointValidation.Valid -> {
                 closeSocketInternal(intentional = true)
                 sessionTokenInMemory = null
-                lastRemoteSeq = -1L
                 _state.update {
                     it.copy(
                         connectionStatus = ConnectionStatus.CONNECTING,
@@ -255,11 +257,13 @@ class MultiplayerSessionManager(
                         countdownValue = null,
                         errorMessage = null,
                         roomClosedReason = null,
-                        raceResults = null
+                        raceResults = null,
+                        remoteTelemetryByPlayerId = emptyMap(),
+                        roomCapacity = roomCapacity
                     )
                 }
                 scope.launch {
-                    val result = transport.createRoomHttp(validation.httpBaseUrl)
+                    val result = transport.createRoomHttp(validation.httpBaseUrl, roomCapacity)
                     result.onSuccess { roomCode ->
                         _state.update { it.copy(serverHealth = ServerHealthStatus.ONLINE) }
                         connectToRoomSocket(
@@ -317,7 +321,6 @@ class MultiplayerSessionManager(
             is ServerEndpointValidation.Valid -> {
                 closeSocketInternal(intentional = true)
                 sessionTokenInMemory = null
-                lastRemoteSeq = -1L
                 _state.update {
                     it.copy(
                         connectionStatus = ConnectionStatus.CONNECTING,
@@ -485,7 +488,6 @@ class MultiplayerSessionManager(
                 if (token.isNotBlank()) {
                     sessionTokenInMemory = token
                 }
-                lastRemoteSeq = -1L
                 _state.update {
                     it.copy(
                         serverHealth = ServerHealthStatus.ONLINE,
@@ -497,7 +499,10 @@ class MultiplayerSessionManager(
                         phase = phase,
                         players = players,
                         errorMessage = null,
-                        roomClosedReason = null
+                        roomClosedReason = null,
+                        remoteTelemetryByPlayerId = emptyMap(),
+                        roomCapacity = json.optInt("maxPlayers", ProtocolConstants.DEFAULT_ROOM_CAPACITY)
+                            .coerceIn(ProtocolConstants.DEFAULT_ROOM_CAPACITY, ProtocolConstants.MAX_PLAYERS_PER_ROOM)
                     )
                 }
             }
@@ -514,7 +519,10 @@ class MultiplayerSessionManager(
                         players = players,
                         isHost = me?.isHost ?: it.isHost,
                         localSlot = me?.slot ?: it.localSlot,
-                        rematchVotes = players.count { p -> p.rematchRequested }
+                        rematchVotes = players.count { p -> p.rematchRequested },
+                        remoteTelemetryByPlayerId = it.remoteTelemetryByPlayerId.filterKeys { id ->
+                            players.any { p -> p.playerId == id }
+                        }
                     )
                 }
             }
@@ -528,7 +536,8 @@ class MultiplayerSessionManager(
                         raceResults = null,
                         authoritativeLaps = 0,
                         authoritativeNextCheckpoint = 1,
-                        rematchVotes = 0
+                        rematchVotes = 0,
+                        remoteTelemetryByPlayerId = emptyMap()
                     )
                 }
             }
@@ -552,8 +561,6 @@ class MultiplayerSessionManager(
                 val senderId = json.optString("playerId", "")
                 if (senderId.isBlank() || senderId == _state.value.localPlayerId) return
                 val seq = json.optLong("seq", 0L)
-                if (seq <= lastRemoteSeq) return // Reject duplicate / out-of-order frames
-                lastRemoteSeq = seq
 
                 val telemetry = RemoteCarTelemetry(
                     playerId = senderId,
@@ -569,7 +576,11 @@ class MultiplayerSessionManager(
                     nitroActive = json.optBoolean("nitro", false),
                     drifting = json.optBoolean("drifting", false)
                 )
-                _state.update { it.copy(remoteTelemetry = telemetry) }
+                _state.update {
+                    val previous = it.remoteTelemetryByPlayerId[senderId]
+                    if (previous != null && seq <= previous.seq) it
+                    else it.copy(remoteTelemetryByPlayerId = it.remoteTelemetryByPlayerId + (senderId to telemetry))
+                }
             }
 
             "checkpoint_ack" -> {
@@ -625,7 +636,7 @@ class MultiplayerSessionManager(
                         players = emptyList(),
                         countdownValue = null,
                         raceResults = null,
-                        remoteTelemetry = null,
+                        remoteTelemetryByPlayerId = emptyMap(),
                         roomClosedReason = reason
                     )
                 }
@@ -718,7 +729,6 @@ class MultiplayerSessionManager(
         runCatching { activeConnection?.send(ProtocolCodec.encodeLeaveRoom()) }
         closeSocketInternal(intentional = true)
         sessionTokenInMemory = null
-        lastRemoteSeq = -1L
         val currentServer = _state.value.serverBaseUrl
         val currentHealth = _state.value.serverHealth
         val status = if (currentServer.isBlank()) ConnectionStatus.UNCONFIGURED else ConnectionStatus.DISCONNECTED

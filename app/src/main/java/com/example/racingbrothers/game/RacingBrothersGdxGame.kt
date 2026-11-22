@@ -23,6 +23,8 @@ import com.example.racingbrothers.controls.CarPhysicsState
 import com.example.racingbrothers.controls.RacingInputState
 import com.example.racingbrothers.networking.MultiplayerSessionManager
 import com.example.racingbrothers.networking.RoomPhase
+import com.example.racingbrothers.networking.MultiplayerUiState
+import com.example.racingbrothers.networking.ProtocolConstants
 import com.example.racingbrothers.storage.GraphicsQuality
 import com.example.racingbrothers.tracks.CircuitTrack
 import com.example.racingbrothers.vehicles.BalancedV1Stats
@@ -40,7 +42,8 @@ data class RaceHudSnapshot(
     val cameraMode: CameraMode = CameraMode.CLOSE_CHASE,
     val fps: Int = 60,
     val nitroCharge: Float = 1f,
-    val nitroActive: Boolean = false
+    val nitroActive: Boolean = false,
+    val playerCount: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY
 )
 
 /**
@@ -68,21 +71,22 @@ class RacingBrothersGdxGame(
 
     private var trackWorld: GdxTrackWorld? = null
     private var localCarRig: GdxVehicleRig? = null
-    private var remoteCarRig: GdxVehicleRig? = null
+    private val rivals = mutableMapOf<String, RivalCar>()
 
     private val physics = ArcadeCarPhysics()
     private val cameraRig = CameraRig(initialCameraMode)
 
     private var localState: CarPhysicsState = physics.createStartingState(0)
 
-    // Smoothly interpolated remote opponent visual state
-    private var remoteX = 0f
-    private var remoteZ = 0f
-    private var remoteHeading = 0f
-    private var remoteSpeed = 0f
-    private var remoteSteer = 0f
-    private var remoteWheelSpin = 0f
-    private var remoteInitialized = false
+    private data class RivalCar(
+        val rig: GdxVehicleRig,
+        var x: Float,
+        var z: Float,
+        var heading: Float,
+        var speed: Float = 0f,
+        var steer: Float = 0f,
+        var wheelSpin: Float = 0f
+    )
 
     private var lastPhase: RoomPhase = RoomPhase.IDLE
     private var lastCountdownBeep: Int = -1
@@ -113,8 +117,8 @@ class RacingBrothersGdxGame(
             Material(ColorAttribute.createDiffuse(Color(0.36f, 0.40f, 0.47f, 1f))),
             effectAttributes
         )
-        flames = List(2) { ModelInstance(flameModel) }
-        smoke = List(4) { ModelInstance(smokeModel) }
+        flames = List(ProtocolConstants.MAX_PLAYERS_PER_ROOM) { ModelInstance(flameModel) }
+        smoke = List(ProtocolConstants.MAX_PLAYERS_PER_ROOM * 2) { ModelInstance(smokeModel) }
 
         camera = PerspectiveCamera(
             initialCameraMode.fieldOfView,
@@ -135,44 +139,31 @@ class RacingBrothersGdxGame(
         }
 
         trackWorld = GdxMeshFactory.buildTrackWorld(graphicsQuality)
-        rebuildVehicleRigs()
         resetGridPositions()
     }
 
-    private fun rebuildVehicleRigs() {
-        localCarRig?.dispose()
-        remoteCarRig?.dispose()
-
-        val uiState = sessionManager.state.value
-        val localPlayer = uiState.localPlayer
-        val opponent = uiState.opponentPlayer
-
-        val localVehicle = VehicleCatalog.getVehicle(localPlayer?.vehicleId ?: "vortex_rs")
-        val localColor = VehicleCatalog.getPaintColor(localPlayer?.colorId ?: "electric_cobalt")
-        val localChar = CharacterCatalog.getCharacter(localPlayer?.characterId ?: "nico_turbo")
-        localCarRig = GdxMeshFactory.buildVehicleRig(localVehicle, localColor, localChar)
-
-        val remoteVehicle = VehicleCatalog.getVehicle(opponent?.vehicleId ?: "apex_gtx")
-        val remoteColor = VehicleCatalog.getPaintColor(opponent?.colorId ?: "crimson_ignite")
-        val remoteChar = CharacterCatalog.getCharacter(opponent?.characterId ?: "kira_apex")
-        remoteCarRig = GdxMeshFactory.buildVehicleRig(remoteVehicle, remoteColor, remoteChar)
-    }
-
     private fun resetGridPositions() {
-        val uiState = sessionManager.state.value
-        val localSlot = uiState.localSlot.coerceIn(0, 1)
-        val remoteSlot = if (localSlot == 0) 1 else 0
-
-        localState = physics.createStartingState(localSlot)
-        val (rx, rz, rHeading) = CircuitTrack.getStartSlot(remoteSlot)
-        remoteX = rx
-        remoteZ = rz
-        remoteHeading = rHeading
-        remoteSpeed = 0f
-        remoteSteer = 0f
-        remoteWheelSpin = 0f
-        remoteInitialized = true
-
+        localCarRig?.dispose()
+        rivals.values.forEach { it.rig.dispose() }
+        rivals.clear()
+        val session = sessionManager.state.value
+        val local = session.localPlayer
+        localCarRig = GdxMeshFactory.buildVehicleRig(
+            VehicleCatalog.getVehicle(local?.vehicleId ?: "vortex_rs"),
+            VehicleCatalog.getPaintColor(local?.colorId ?: "electric_cobalt"),
+            CharacterCatalog.getCharacter(local?.characterId ?: "nico_turbo")
+        )
+        for (player in session.players) {
+            if (player.playerId == session.localPlayerId) continue
+            val (x, z, heading) = CircuitTrack.getStartSlot(player.slot)
+            val rig = GdxMeshFactory.buildVehicleRig(
+                VehicleCatalog.getVehicle(player.vehicleId),
+                VehicleCatalog.getPaintColor(player.colorId),
+                CharacterCatalog.getCharacter(player.characterId)
+            )
+            rivals[player.playerId] = RivalCar(rig, x, z, heading)
+        }
+        localState = physics.createStartingState(session.localSlot)
         cameraRig.snapToTarget(localState.x, localState.z, localState.headingRad)
         raceClockStartMs = 0L
     }
@@ -220,13 +211,17 @@ class RacingBrothersGdxGame(
         // 1. Update local arcade car physics
         val canDrive = session.phase == RoomPhase.RACING && !localState.finished
         val input = inputProvider()
+        val closestRival = session.players.asSequence()
+            .filter { it.connected }
+            .mapNotNull { rivals[it.playerId] }
+            .minByOrNull { (it.x - localState.x) * (it.x - localState.x) + (it.z - localState.z) * (it.z - localState.z) }
         val (updatedState, checkpointEvent) = physics.step(
             state = localState,
             input = input,
             dtSeconds = dt,
             canDrive = canDrive,
-            opponentX = if (remoteInitialized) remoteX else null,
-            opponentZ = if (remoteInitialized) remoteZ else null
+            opponentX = closestRival?.x,
+            opponentZ = closestRival?.z
         )
         localState = updatedState
 
@@ -243,7 +238,7 @@ class RacingBrothersGdxGame(
         }
 
         // 2. Smoothly interpolate remote opponent telemetry (with capped dead-reckoning)
-        updateRemoteOpponent(session, dt)
+        updateRivals(session, dt)
 
         // 3. Throttled WebSocket state broadcast (~18 Hz) to stay well within Cloudflare Free limits
         telemetryAccumulatorSec += dt
@@ -285,14 +280,6 @@ class RacingBrothersGdxGame(
             steerAngleDeg = localState.steerAngleDeg,
             wheelSpinDeg = localState.wheelSpinDeg
         )
-        remoteCarRig?.updateTransform(
-            x = remoteX,
-            z = remoteZ,
-            headingRad = remoteHeading,
-            steerAngleDeg = remoteSteer,
-            wheelSpinDeg = remoteWheelSpin
-        )
-
         // 6. Render 3D scene (Deep midnight night-circuit sky)
         Gdx.gl.glViewport(0, 0, Gdx.graphics.width, Gdx.graphics.height)
         Gdx.gl.glClearColor(0.024f, 0.039f, 0.075f, 1f)
@@ -312,22 +299,22 @@ class RacingBrothersGdxGame(
                 modelBatch.render(w.instance, environment)
             }
         }
-        remoteCarRig?.let { rig ->
-            modelBatch.render(rig.bodyInstance, environment)
-            modelBatch.render(rig.driverInstance, environment)
-            for (w in rig.wheels) {
-                modelBatch.render(w.instance, environment)
-            }
-        }
         effectsTime = (effectsTime + dt) % 12f
         if (canDrive) {
-            renderDrivingEffects(0, localState.x, localState.z, localState.headingRad, localState.nitroActive, localState.drifting)
+            renderDrivingEffects(session.localSlot, localState.x, localState.z, localState.headingRad, localState.nitroActive, localState.drifting)
         }
-        val opponentEffects = session.remoteTelemetry
-        if (session.phase == RoomPhase.RACING && remoteInitialized && opponentEffects != null &&
-            session.opponentPlayer?.connected == true && System.currentTimeMillis() - opponentEffects.receivedAtMs < 300L
-        ) {
-            renderDrivingEffects(1, remoteX, remoteZ, remoteHeading, opponentEffects.nitroActive, opponentEffects.drifting)
+        for (player in session.players) {
+            val rival = rivals[player.playerId] ?: continue
+            val rig = rival.rig
+            modelBatch.render(rig.bodyInstance, environment)
+            modelBatch.render(rig.driverInstance, environment)
+            for (wheel in rig.wheels) modelBatch.render(wheel.instance, environment)
+            val telemetry = session.remoteTelemetryByPlayerId[player.playerId] ?: continue
+            if (session.phase == RoomPhase.RACING && player.connected &&
+                System.currentTimeMillis() - telemetry.receivedAtMs < 300L
+            ) {
+                renderDrivingEffects(player.slot, rival.x, rival.z, rival.heading, telemetry.nitroActive, telemetry.drifting)
+            }
         }
         modelBatch.end()
 
@@ -341,18 +328,13 @@ class RacingBrothersGdxGame(
                 x = localState.x,
                 z = localState.z
             )
-            val remoteTelemetry = session.remoteTelemetry
-            val remoteProgress = if (remoteTelemetry != null) {
-                CircuitTrack.computeRaceProgress(
-                    completedLaps = remoteTelemetry.completedLaps,
-                    nextCheckpoint = remoteTelemetry.nextCheckpoint,
-                    x = remoteX,
-                    z = remoteZ
+            val rank = 1 + rivals.count { (playerId, rival) ->
+                val telemetry = session.remoteTelemetryByPlayerId[playerId] ?: return@count false
+                val progress = CircuitTrack.computeRaceProgress(
+                    telemetry.completedLaps, telemetry.nextCheckpoint, rival.x, rival.z
                 )
-            } else {
-                0f
+                progress > localProgress
             }
-            val rank = if (localProgress >= remoteProgress) 1 else 2
             val elapsed = if (session.phase == RoomPhase.RACING && raceClockStartMs > 0L) {
                 (System.currentTimeMillis() - raceClockStartMs).coerceAtLeast(0L)
             } else 0L
@@ -367,13 +349,15 @@ class RacingBrothersGdxGame(
                     cameraMode = cameraRig.mode,
                     fps = Gdx.graphics.framesPerSecond,
                     nitroCharge = localState.nitroCharge,
-                    nitroActive = localState.nitroActive
+                    nitroActive = localState.nitroActive,
+                    playerCount = session.roomCapacity
                 )
             )
         }
     }
 
     private fun renderDrivingEffects(index: Int, x: Float, z: Float, heading: Float, nitro: Boolean, drifting: Boolean) {
+        if (index !in flames.indices) return
         val forwardX = sin(heading)
         val forwardZ = cos(heading)
         if (nitro) {
@@ -401,21 +385,26 @@ class RacingBrothersGdxGame(
         }
     }
 
-    private fun updateRemoteOpponent(session: com.example.racingbrothers.networking.MultiplayerUiState, dt: Float) {
-        val telemetry = session.remoteTelemetry ?: return
-        val ageSec = ((System.currentTimeMillis() - telemetry.receivedAtMs).coerceIn(0L, 160L)) / 1000f
-        val targetX = telemetry.x + sin(telemetry.headingRad) * telemetry.speedMps * ageSec
-        val targetZ = telemetry.z + cos(telemetry.headingRad) * telemetry.speedMps * ageSec
-
+    private fun updateRivals(session: MultiplayerUiState, dt: Float) {
+        val now = System.currentTimeMillis()
         val alpha = (1f - kotlin.math.exp(-12f * dt)).coerceIn(0.05f, 1f)
-        remoteX += (targetX - remoteX) * alpha
-        remoteZ += (targetZ - remoteZ) * alpha
-        val angleDelta = ArcadeCarPhysics.normalizeAngle(telemetry.headingRad - remoteHeading)
-        remoteHeading = ArcadeCarPhysics.normalizeAngle(remoteHeading + angleDelta * alpha)
-        remoteSpeed += (telemetry.speedMps - remoteSpeed) * alpha
-        remoteSteer += (telemetry.steerAngleDeg - remoteSteer) * alpha
-        remoteWheelSpin = (remoteWheelSpin + (remoteSpeed * dt / 0.36f) * (180f / Math.PI.toFloat())) % 360f
-        remoteInitialized = true
+        for ((id, rival) in rivals) {
+            val telemetry = session.remoteTelemetryByPlayerId[id]
+            if (telemetry != null) {
+                val ageSec = (now - telemetry.receivedAtMs).coerceIn(0L, 160L) / 1000f
+                val targetX = telemetry.x + sin(telemetry.headingRad) * telemetry.speedMps * ageSec
+                val targetZ = telemetry.z + cos(telemetry.headingRad) * telemetry.speedMps * ageSec
+                rival.x += (targetX - rival.x) * alpha
+                rival.z += (targetZ - rival.z) * alpha
+                val angle = ArcadeCarPhysics.normalizeAngle(telemetry.headingRad - rival.heading)
+                rival.heading = ArcadeCarPhysics.normalizeAngle(rival.heading + angle * alpha)
+                val targetSpeed = if (now - telemetry.receivedAtMs < 300L) telemetry.speedMps else 0f
+                rival.speed += (targetSpeed - rival.speed) * alpha
+                rival.steer += (telemetry.steerAngleDeg - rival.steer) * alpha
+                rival.wheelSpin = (rival.wheelSpin + rival.speed * dt / 0.36f * (180f / Math.PI.toFloat())) % 360f
+            }
+            rival.rig.updateTransform(rival.x, rival.z, rival.heading, rival.steer, rival.wheelSpin)
+        }
     }
 
     override fun dispose() {
@@ -424,6 +413,6 @@ class RacingBrothersGdxGame(
         smokeModel.dispose()
         trackWorld?.dispose()
         localCarRig?.dispose()
-        remoteCarRig?.dispose()
+        rivals.values.forEach { it.rig.dispose() }
     }
 }

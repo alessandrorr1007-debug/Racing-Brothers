@@ -96,8 +96,6 @@ fun LobbyScreen(
         }
     }
 
-    val player1 = multiplayerState.players.firstOrNull { it.slot == 0 }
-    val player2 = multiplayerState.players.firstOrNull { it.slot == 1 }
     val localReady = multiplayerState.localPlayer?.ready == true
     val roomCode = multiplayerState.roomCode ?: "------"
 
@@ -212,27 +210,18 @@ fun LobbyScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 maxItemsInEachRow = if (singleColumnCards) 1 else 2
             ) {
-                LobbyPlayerCard(
-                    slotTitle = stringResource(R.string.player_1_label),
-                    player = player1,
-                    isLocal = player1?.playerId == multiplayerState.localPlayerId,
-                    previewHeight = previewHeight,
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = cardHeight)
-                        .testTag("lobby_player_1_card")
-                )
-
-                LobbyPlayerCard(
-                    slotTitle = stringResource(R.string.player_2_label),
-                    player = player2,
-                    isLocal = player2?.playerId == multiplayerState.localPlayerId,
-                    previewHeight = previewHeight,
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = cardHeight)
-                        .testTag("lobby_player_2_card")
-                )
+                for (slot in 0 until multiplayerState.roomCapacity) {
+                    val player = multiplayerState.players.firstOrNull { it.slot == slot }
+                    LobbyPlayerCard(
+                        slotTitle = if (slot == 0) stringResource(R.string.player_1_label)
+                        else stringResource(R.string.lobby_guest_label, slot + 1),
+                        player = player,
+                        isLocal = player != null && player.playerId == multiplayerState.localPlayerId,
+                        previewHeight = previewHeight,
+                        modifier = Modifier.weight(1f).heightIn(min = cardHeight)
+                            .testTag("lobby_player_${slot + 1}_card")
+                    )
+                }
             }
 
             // Bottom Action Bar: Edit Setup + LISTO + INICIAR CARRERA (Host exclusive)
@@ -265,7 +254,7 @@ fun LobbyScreen(
                 Text(
                     text = when {
                         multiplayerState.canHostStartRace -> "¡Todos listos! Inicia la carrera."
-                        multiplayerState.isHost -> stringResource(R.string.lobby_need_two_ready)
+                        multiplayerState.isHost -> stringResource(R.string.lobby_need_capacity_ready, multiplayerState.roomCapacity)
                         else -> stringResource(R.string.lobby_waiting_host)
                     },
                     style = MaterialTheme.typography.bodyMedium,

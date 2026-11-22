@@ -204,8 +204,9 @@ class MultiplayerProtocolAndSessionTest {
 
         // 7. Telemetry transmission from Client 1 reaches Client 2
         client1.sendTelemetry(12f, 44f, 0.2f, 40f, 5f, 0, 2)
-        assertEquals(12f, client2.state.value.remoteTelemetry?.x ?: -1f, 0.01f)
-        assertEquals(44f, client2.state.value.remoteTelemetry?.z ?: -1f, 0.01f)
+        val hostTelemetry = client2.state.value.remoteTelemetryByPlayerId[client1.state.value.localPlayerId]
+        assertEquals(12f, hostTelemetry?.x ?: -1f, 0.01f)
+        assertEquals(44f, hostTelemetry?.z ?: -1f, 0.01f)
 
         // 8. Finish race -> Winner determined & broadcast to both
         broker.triggerFinishForSlot(code, winnerSlot = 0)
@@ -230,6 +231,35 @@ class MultiplayerProtocolAndSessionTest {
     /**
      * Deterministic multi-client in-memory room broker mirroring the Cloudflare RaceRoomDO contract.
      */
+    @Test
+    fun `three and four player rooms track simultaneous telemetry by sender`() {
+        for (capacity in 3..4) {
+            val broker = InMemoryRoomBroker()
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+            val clients = List(capacity) {
+                MultiplayerSessionManager(transport = broker, scope = scope).apply {
+                    updateServerConfig("wss://test-broker.workers.dev")
+                }
+            }
+            val host = clients.first()
+            host.createRoom("vortex_rs", "electric_cobalt", "nico_turbo", capacity)
+            val code = requireNotNull(host.state.value.roomCode)
+            clients.drop(1).forEach { it.joinRoom(code, "apex_gtx", "crimson_ignite", "kira_apex") }
+            assertEquals(capacity, host.state.value.roomCapacity)
+            assertEquals((0 until capacity).toList(), host.state.value.players.map { it.slot })
+            clients.forEach { it.setReady(true) }
+            assertTrue(host.state.value.canHostStartRace)
+            host.startRace()
+            clients.drop(1).forEachIndexed { slot, client ->
+                client.sendTelemetry(slot.toFloat(), 25f, 0f, 30f, 0f, 0, 1)
+            }
+            val telemetry = host.state.value.remoteTelemetryByPlayerId.values
+            assertEquals(capacity - 1, telemetry.size)
+            assertEquals((0 until capacity - 1).map(Int::toFloat).toSet(), telemetry.map { it.x }.toSet())
+            host.leaveRoom()
+        }
+    }
+
     private class InMemoryRoomBroker : MultiplayerTransport {
         private data class ServerPlayer(
             val id: String,
@@ -245,15 +275,18 @@ class MultiplayerProtocolAndSessionTest {
 
         private data class Room(
             val code: String,
+            val capacity: Int,
             var phase: String = "LOBBY",
             val players: MutableList<ServerPlayer> = mutableListOf()
         )
 
         private val rooms = mutableMapOf<String, Room>()
 
-        override suspend fun createRoomHttp(httpBaseUrl: String): Result<String> {
+        override suspend fun createRoomHttp(httpBaseUrl: String): Result<String> = createRoomHttp(httpBaseUrl, 2)
+
+        override suspend fun createRoomHttp(httpBaseUrl: String, maxPlayers: Int): Result<String> {
             val code = "004821"
-            rooms[code] = Room(code)
+            rooms[code] = Room(code, maxPlayers)
             return Result.success(code)
         }
 
@@ -275,7 +308,7 @@ class MultiplayerProtocolAndSessionTest {
                                 )
                                 return true
                             }
-                            if (room.players.size >= 2) {
+                            if (room.players.size >= room.capacity) {
                                 listener.onMessage(
                                     JSONObject().put("v", 1).put("type", "error")
                                         .put("code", "ROOM_FULL")
@@ -283,7 +316,7 @@ class MultiplayerProtocolAndSessionTest {
                                 )
                                 return true
                             }
-                            val slot = if (room.players.none { it.slot == 0 }) 0 else 1
+                            val slot = (0 until room.capacity).first { slot -> room.players.none { it.slot == slot } }
                             val p = ServerPlayer(
                                 id = "p_$slot",
                                 token = "tok_${slot}_1234567890",
@@ -304,6 +337,7 @@ class MultiplayerProtocolAndSessionTest {
                                     .put("slot", slot)
                                     .put("isHost", slot == 0)
                                     .put("phase", room.phase)
+                                    .put("maxPlayers", room.capacity)
                                     .put("players", serialize(room))
                                     .toString()
                             )
@@ -325,7 +359,7 @@ class MultiplayerProtocolAndSessionTest {
                         }
 
                         "start_race" -> {
-                            if (room != null && boundPlayer?.slot == 0 && room.players.size == 2 && room.players.all { it.ready }) {
+                            if (room != null && boundPlayer?.slot == 0 && room.players.size == room.capacity && room.players.all { it.ready }) {
                                 startRace(room)
                             }
                         }
@@ -357,7 +391,7 @@ class MultiplayerProtocolAndSessionTest {
                                 .put("players", serialize(room))
                                 .toString()
                             room.players.forEach { it.listener.onMessage(payload) }
-                            if (count == 2) startRace(room)
+                            if (count == room.capacity) startRace(room)
                         }
 
                         "leave_room" -> {

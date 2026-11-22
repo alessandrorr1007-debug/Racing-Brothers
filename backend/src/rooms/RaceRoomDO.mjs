@@ -467,6 +467,7 @@ export class RaceRoomDO {
       slot: existing.slot,
       isHost: existing.isHost,
       phase: this.phase,
+      maxPlayers: this.maxPlayers,
       players: playersList
     });
 
