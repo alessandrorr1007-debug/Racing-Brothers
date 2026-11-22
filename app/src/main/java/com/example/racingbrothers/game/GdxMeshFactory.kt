@@ -5,9 +5,12 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.VertexAttributes
 import com.badlogic.gdx.graphics.g3d.Material
 import com.badlogic.gdx.graphics.g3d.Model
+import com.badlogic.gdx.graphics.g3d.ModelCache
 import com.badlogic.gdx.graphics.g3d.ModelInstance
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
+import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.BoxShapeBuilder
+import com.badlogic.gdx.math.Vector3
 import com.example.racingbrothers.characters.CharacterSpec
 import com.example.racingbrothers.storage.GraphicsQuality
 import com.example.racingbrothers.tracks.CircuitTrack
@@ -75,11 +78,12 @@ data class GdxVehicleRig(
 }
 
 data class GdxTrackWorld(
-    val staticInstances: List<ModelInstance>,
+    val scenery: ModelCache,
     val checkpointArches: List<ModelInstance>,
     val disposables: List<Model>
 ) {
     fun dispose() {
+        scenery.dispose()
         disposables.forEach { it.dispose() }
     }
 }
@@ -132,7 +136,18 @@ object GdxMeshFactory {
                 node.rotation.setEulerAngles(0f, part.pitchDeg, 0f)
             }
             val meshPart = builder.part(part.id, GL20.GL_TRIANGLES, ATTRS, mat)
-            meshPart.box(part.width, part.height, part.length)
+            val x = part.width * 0.5f
+            val y = part.height * 0.5f
+            val z = part.length * 0.5f
+            val topX = x * part.topWidthScale
+            val topZ = z * part.topLengthScale
+            BoxShapeBuilder.build(
+                meshPart,
+                Vector3(-x, -y, -z), Vector3(-topX, y, -topZ),
+                Vector3(x, -y, -z), Vector3(topX, y, -topZ),
+                Vector3(-x, -y, z), Vector3(-topX, y, topZ),
+                Vector3(x, -y, z), Vector3(topX, y, topZ)
+            )
         }
         val bodyModel = builder.end()
         disposables.add(bodyModel)
@@ -153,31 +168,30 @@ object GdxMeshFactory {
 
         // 3. Shared wheel model (tire + metallic rim hub)
         val wheelSpecs = vehicle.parts.filter { it.isWheel }
-        val wheelRigs = mutableListOf<GdxWheelRig>()
-        for (w in wheelSpecs) {
-            builder.begin()
-            val tireMat = Material(ColorAttribute.createDiffuse(Color(0.08f, 0.09f, 0.11f, 1f)))
-            val rimMat = Material(ColorAttribute.createDiffuse(Color(0.74f, 0.82f, 0.92f, 1f)))
-            val tireNode = builder.node()
-            tireNode.id = "${w.id}_tire"
-            val tirePart = builder.part("${w.id}_tire", GL20.GL_TRIANGLES, ATTRS, tireMat)
-            tirePart.cylinder(w.height, w.width, w.length, 12)
+        val wheelModels = mutableMapOf<Triple<Float, Float, Float>, Model>()
+        val wheelRigs = wheelSpecs.map { w ->
+            val wheelModel = wheelModels.getOrPut(Triple(w.width, w.height, w.length)) {
+                builder.begin()
+                val tireMat = Material(ColorAttribute.createDiffuse(Color(0.08f, 0.09f, 0.11f, 1f)))
+                val rimMat = Material(ColorAttribute.createDiffuse(Color(0.74f, 0.82f, 0.92f, 1f)))
+                val tireNode = builder.node()
+                tireNode.id = "${w.id}_tire"
+                val tirePart = builder.part("${w.id}_tire", GL20.GL_TRIANGLES, ATTRS, tireMat)
+                tirePart.cylinder(w.height, w.width, w.length, 12)
 
-            val rimNode = builder.node()
-            rimNode.id = "${w.id}_rim"
-            val rimPart = builder.part("${w.id}_rim", GL20.GL_TRIANGLES, ATTRS, rimMat)
-            rimPart.cylinder(w.height * 0.56f, w.width * 1.06f, w.length * 0.56f, 10)
+                val rimNode = builder.node()
+                rimNode.id = "${w.id}_rim"
+                val rimPart = builder.part("${w.id}_rim", GL20.GL_TRIANGLES, ATTRS, rimMat)
+                rimPart.cylinder(w.height * 0.56f, w.width * 1.06f, w.length * 0.56f, 10)
 
-            val wheelModel = builder.end()
-            disposables.add(wheelModel)
-            wheelRigs.add(
-                GdxWheelRig(
-                    instance = ModelInstance(wheelModel),
-                    offsetX = w.centerX,
-                    offsetY = w.centerY,
-                    offsetZ = w.centerZ,
-                    isFront = w.isFrontWheel
-                )
+                builder.end().also { disposables.add(it) }
+            }
+            GdxWheelRig(
+                instance = ModelInstance(wheelModel),
+                offsetX = w.centerX,
+                offsetY = w.centerY,
+                offsetZ = w.centerZ,
+                isFront = w.isFrontWheel
             )
         }
 
@@ -421,10 +435,18 @@ object GdxMeshFactory {
             staticInstances.add(mountain)
         }
 
+        // Bake fixed track geometry into shared draw calls. Checkpoint arches stay
+        // separate because the race can highlight them independently.
+        val scenery = ModelCache()
+        scenery.begin()
+        staticInstances.forEach { scenery.add(it) }
+        scenery.end()
+        // ModelCache owns the baked meshes after end().
+        disposables.filter { it !== cpModel }.forEach { it.dispose() }
         return GdxTrackWorld(
-            staticInstances = staticInstances,
+            scenery = scenery,
             checkpointArches = checkpointArches,
-            disposables = disposables
+            disposables = listOf(cpModel)
         )
     }
 

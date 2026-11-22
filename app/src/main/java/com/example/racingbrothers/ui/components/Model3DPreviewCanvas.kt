@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -41,7 +42,9 @@ private data class RenderBox3D(
     val l: Float,
     val color: Color,
     val pitchDeg: Float = 0f,
-    val emissive: Boolean = false
+    val emissive: Boolean = false,
+    val topWidthScale: Float = 1f,
+    val topLengthScale: Float = 1f
 )
 
 private data class ProjectedQuad(
@@ -64,7 +67,8 @@ fun Vehicle3DPreview(
     interactiveDrag: Boolean = true,
     initialYawDeg: Float = 38f,
     initialPitchDeg: Float = 18f,
-    zoomScale: Float = 1.0f
+    zoomScale: Float = 1.0f,
+    garageLighting: Boolean = false
 ) {
     val boxes = remember(vehicle.id, paintColor.id, driver?.id) {
         buildList {
@@ -80,6 +84,8 @@ fun Vehicle3DPreview(
                         l = part.length,
                         color = color,
                         pitchDeg = part.pitchDeg,
+                        topWidthScale = part.topWidthScale,
+                        topLengthScale = part.topLengthScale,
                         emissive = part.role == PartColorRole.HEADLIGHT ||
                             part.role == PartColorRole.TAILLIGHT ||
                             part.role == PartColorRole.ACCENT_GLOW
@@ -114,7 +120,8 @@ fun Vehicle3DPreview(
         autoRotate = autoRotate,
         interactiveDrag = interactiveDrag,
         initialYawDeg = initialYawDeg,
-        initialPitchDeg = initialPitchDeg
+        initialPitchDeg = initialPitchDeg,
+        garageLighting = garageLighting
     )
 }
 
@@ -163,7 +170,8 @@ private fun Interactive3DViewport(
     autoRotate: Boolean,
     interactiveDrag: Boolean,
     initialYawDeg: Float,
-    initialPitchDeg: Float
+    initialPitchDeg: Float,
+    garageLighting: Boolean = false
 ) {
     var yawDeg by remember { mutableFloatStateOf(initialYawDeg) }
     var pitchDeg by remember { mutableFloatStateOf(initialPitchDeg) }
@@ -197,6 +205,24 @@ private fun Interactive3DViewport(
         val cx = w * 0.5f
         val cy = h * 0.54f
         val focal = minOf(w, h) * 1.18f
+        val redLed = Color(0xFFFF2458)
+        if (garageLighting) {
+            drawRect(Brush.verticalGradient(listOf(Color(0xFF030714), Color(0xFF14213B), Color(0xFF050913))))
+            for ((x, led) in listOf(0.18f to NeonCyan, 0.82f to redLed)) {
+                val fixture = Offset(w * x, h * 0.22f)
+                drawCircle(
+                    Brush.radialGradient(listOf(led.copy(alpha = 0.26f), Color.Transparent), fixture, w * 0.36f),
+                    radius = w * 0.36f,
+                    center = fixture
+                )
+                drawLine(led, fixture - Offset(w * 0.09f, 0f), fixture + Offset(w * 0.09f, 0f), h * 0.014f)
+                drawOval(
+                    Brush.radialGradient(listOf(led.copy(alpha = 0.22f), Color.Transparent), Offset(w * x, h * 0.86f), w * 0.21f),
+                    topLeft = Offset(w * (x - 0.21f), h * 0.75f),
+                    size = Size(w * 0.42f, h * 0.21f)
+                )
+            }
+        }
 
         // Glowing motorsport turntable pedestal under the 3D model
         drawTurntablePedestal(cx = cx, cy = cy + minOf(w, h) * 0.24f, radiusX = minOf(w, h) * 0.42f, radiusY = minOf(w, h) * 0.13f)
@@ -217,9 +243,11 @@ private fun Interactive3DViewport(
             val hw = box.w * 0.5f
             val hh = box.h * 0.5f
             val hl = box.l * 0.5f
+            val topW = hw * box.topWidthScale
+            val topL = hl * box.topLengthScale
             val localCorners = arrayOf(
-                Vec3(-hw, -hh, -hl), Vec3(hw, -hh, -hl), Vec3(hw, hh, -hl), Vec3(-hw, hh, -hl),
-                Vec3(-hw, -hh, hl), Vec3(hw, -hh, hl), Vec3(hw, hh, hl), Vec3(-hw, hh, hl)
+                Vec3(-hw, -hh, -hl), Vec3(hw, -hh, -hl), Vec3(topW, hh, -topL), Vec3(-topW, hh, -topL),
+                Vec3(-hw, -hh, hl), Vec3(hw, -hh, hl), Vec3(topW, hh, topL), Vec3(-topW, hh, topL)
             )
             val boxPitchRad = Math.toRadians(box.pitchDeg.toDouble()).toFloat()
             val cbp = cos(boxPitchRad)
@@ -272,7 +300,7 @@ private fun Interactive3DViewport(
                     val rimLight = dot(normal, rimDir).coerceIn(0f, 1f) * 0.28f
                     val intensity = (0.38f + keyLight * 0.62f).coerceIn(0.28f, 1.05f)
                     Color(
-                        red = (box.color.red * intensity + 0.04f * rimLight).coerceIn(0f, 1f),
+                        red = (box.color.red * intensity + (if (garageLighting) 0.85f else 0.04f) * rimLight).coerceIn(0f, 1f),
                         green = (box.color.green * intensity + 0.35f * rimLight).coerceIn(0f, 1f),
                         blue = (box.color.blue * intensity + 0.65f * rimLight).coerceIn(0f, 1f),
                         alpha = 1f
@@ -347,12 +375,12 @@ private fun resolveVehiclePartColor(role: PartColorRole, paint: VehiclePaintColo
 
 // Counter-clockwise wound cube faces for outward normals
 private val CUBE_FACES = arrayOf(
-    intArrayOf(0, 1, 2, 3), // -Z back
-    intArrayOf(5, 4, 7, 6), // +Z front
-    intArrayOf(4, 0, 3, 7), // -X left
-    intArrayOf(1, 5, 6, 2), // +X right
-    intArrayOf(3, 2, 6, 7), // +Y top
-    intArrayOf(4, 5, 1, 0)  // -Y bottom
+    intArrayOf(0, 3, 2, 1), // -Z back
+    intArrayOf(5, 6, 7, 4), // +Z front
+    intArrayOf(4, 7, 3, 0), // -X left
+    intArrayOf(1, 2, 6, 5), // +X right
+    intArrayOf(3, 7, 6, 2), // +Y top
+    intArrayOf(4, 0, 1, 5)  // -Y bottom
 )
 
 private fun cross(a: Vec3, b: Vec3): Vec3 = Vec3(

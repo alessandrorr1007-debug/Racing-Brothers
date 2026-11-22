@@ -271,9 +271,7 @@ class RacingBrothersGdxGame(
 
         modelBatch.begin(camera)
         trackWorld?.let { world ->
-            for (inst in world.staticInstances) {
-                modelBatch.render(inst, environment)
-            }
+            modelBatch.render(world.scenery, environment)
             for (arch in world.checkpointArches) {
                 modelBatch.render(arch, environment)
             }

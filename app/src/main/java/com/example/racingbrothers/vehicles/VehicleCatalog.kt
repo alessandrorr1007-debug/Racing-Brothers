@@ -1,7 +1,7 @@
 package com.example.racingbrothers.vehicles
 
 /**
- * 3D box primitive shared between the libGDX 3D engine and the interactive 3D Compose preview.
+ * Taperable body panel shared by the libGDX engine and the interactive preview.
  * Coordinates are in vehicle-local meters: +X right, +Y up, +Z forward.
  */
 data class MeshBoxPart(
@@ -15,7 +15,9 @@ data class MeshBoxPart(
     val role: PartColorRole,
     val pitchDeg: Float = 0f,
     val isWheel: Boolean = false,
-    val isFrontWheel: Boolean = false
+    val isFrontWheel: Boolean = false,
+    val topWidthScale: Float = 1f,
+    val topLengthScale: Float = 1f
 )
 
 enum class PartColorRole {
@@ -77,10 +79,10 @@ object VehicleCatalog {
             cockpitY = 0.72f,
             cockpitZ = -0.10f,
             parts = listOf(
-                MeshBoxPart("chassis", 0f, 0.44f, 0f, 1.88f, 0.48f, 3.85f, PartColorRole.PRIMARY_PAINT),
-                MeshBoxPart("hood", 0f, 0.66f, 1.05f, 1.72f, 0.22f, 1.35f, PartColorRole.PRIMARY_PAINT, pitchDeg = 6f),
-                MeshBoxPart("cabin", 0f, 1.02f, -0.25f, 1.56f, 0.54f, 1.85f, PartColorRole.GLASS_TINT),
-                MeshBoxPart("roof", 0f, 1.30f, -0.32f, 1.50f, 0.08f, 1.65f, PartColorRole.PRIMARY_PAINT),
+                MeshBoxPart("chassis", 0f, 0.44f, 0f, 1.88f, 0.48f, 3.85f, PartColorRole.PRIMARY_PAINT, topWidthScale = 0.88f, topLengthScale = 0.94f),
+                MeshBoxPart("hood", 0f, 0.66f, 1.05f, 1.72f, 0.22f, 1.35f, PartColorRole.PRIMARY_PAINT, pitchDeg = 6f, topWidthScale = 0.84f, topLengthScale = 0.84f),
+                MeshBoxPart("cabin", 0f, 1.02f, -0.25f, 1.56f, 0.54f, 1.85f, PartColorRole.GLASS_TINT, topWidthScale = 0.76f, topLengthScale = 0.72f),
+                MeshBoxPart("roof", 0f, 1.30f, -0.32f, 1.18f, 0.08f, 1.34f, PartColorRole.PRIMARY_PAINT),
                 MeshBoxPart("roof_spoiler", 0f, 1.36f, -1.28f, 1.64f, 0.10f, 0.38f, PartColorRole.SECONDARY_TRIM, pitchDeg = -10f),
                 MeshBoxPart("front_bumper", 0f, 0.24f, 1.92f, 1.92f, 0.20f, 0.24f, PartColorRole.SECONDARY_TRIM),
                 MeshBoxPart("rear_diffuser", 0f, 0.24f, -1.92f, 1.84f, 0.22f, 0.20f, PartColorRole.SECONDARY_TRIM),
@@ -106,9 +108,9 @@ object VehicleCatalog {
             cockpitY = 0.62f,
             cockpitZ = 0.15f,
             parts = listOf(
-                MeshBoxPart("chassis", 0f, 0.36f, 0f, 2.12f, 0.38f, 4.45f, PartColorRole.PRIMARY_PAINT),
-                MeshBoxPart("front_nose", 0f, 0.32f, 1.85f, 1.96f, 0.24f, 1.05f, PartColorRole.PRIMARY_PAINT, pitchDeg = 10f),
-                MeshBoxPart("cabin", 0f, 0.80f, 0.10f, 1.48f, 0.42f, 1.65f, PartColorRole.GLASS_TINT),
+                MeshBoxPart("chassis", 0f, 0.36f, 0f, 2.12f, 0.38f, 4.45f, PartColorRole.PRIMARY_PAINT, topWidthScale = 0.88f, topLengthScale = 0.94f),
+                MeshBoxPart("front_nose", 0f, 0.32f, 1.85f, 1.96f, 0.24f, 1.05f, PartColorRole.PRIMARY_PAINT, pitchDeg = 10f, topWidthScale = 0.88f, topLengthScale = 0.78f),
+                MeshBoxPart("cabin", 0f, 0.80f, 0.10f, 1.48f, 0.42f, 1.65f, PartColorRole.GLASS_TINT, topWidthScale = 0.72f, topLengthScale = 0.59f),
                 MeshBoxPart("engine_deck", 0f, 0.64f, -1.15f, 1.88f, 0.26f, 1.55f, PartColorRole.SECONDARY_TRIM),
                 MeshBoxPart("intake_l", -1.04f, 0.48f, -0.35f, 0.24f, 0.30f, 1.30f, PartColorRole.SECONDARY_TRIM),
                 MeshBoxPart("intake_r", 1.04f, 0.48f, -0.35f, 0.24f, 0.30f, 1.30f, PartColorRole.SECONDARY_TRIM),
@@ -135,12 +137,12 @@ object VehicleCatalog {
             cockpitY = 0.72f,
             cockpitZ = -0.35f,
             parts = listOf(
-                MeshBoxPart("chassis", 0f, 0.46f, 0f, 2.04f, 0.52f, 4.55f, PartColorRole.PRIMARY_PAINT),
+                MeshBoxPart("chassis", 0f, 0.46f, 0f, 2.04f, 0.52f, 4.55f, PartColorRole.PRIMARY_PAINT, topWidthScale = 0.88f, topLengthScale = 0.94f),
                 MeshBoxPart("long_hood", 0f, 0.76f, 1.12f, 1.88f, 0.18f, 1.90f, PartColorRole.PRIMARY_PAINT),
                 MeshBoxPart("v8_blower", 0f, 0.94f, 1.18f, 0.64f, 0.24f, 0.78f, PartColorRole.WHEEL_RIM),
                 MeshBoxPart("blower_intake", 0f, 0.98f, 1.58f, 0.56f, 0.14f, 0.10f, PartColorRole.ACCENT_GLOW),
-                MeshBoxPart("cabin", 0f, 1.04f, -0.45f, 1.62f, 0.50f, 1.58f, PartColorRole.GLASS_TINT),
-                MeshBoxPart("roof", 0f, 1.30f, -0.48f, 1.56f, 0.08f, 1.30f, PartColorRole.PRIMARY_PAINT),
+                MeshBoxPart("cabin", 0f, 1.04f, -0.45f, 1.62f, 0.50f, 1.58f, PartColorRole.GLASS_TINT, topWidthScale = 0.80f, topLengthScale = 0.76f),
+                MeshBoxPart("roof", 0f, 1.30f, -0.48f, 1.30f, 0.08f, 1.20f, PartColorRole.PRIMARY_PAINT),
                 MeshBoxPart("rear_fender_l", -0.96f, 0.64f, -1.25f, 0.26f, 0.24f, 1.60f, PartColorRole.PRIMARY_PAINT),
                 MeshBoxPart("rear_fender_r", 0.96f, 0.64f, -1.25f, 0.26f, 0.24f, 1.60f, PartColorRole.PRIMARY_PAINT),
                 MeshBoxPart("ducktail", 0f, 0.80f, -2.18f, 1.96f, 0.18f, 0.22f, PartColorRole.SECONDARY_TRIM, pitchDeg = -20f),
@@ -165,12 +167,12 @@ object VehicleCatalog {
             cockpitY = 0.60f,
             cockpitZ = -0.10f,
             parts = listOf(
-                MeshBoxPart("monocoque", 0f, 0.38f, 0.15f, 1.18f, 0.40f, 4.35f, PartColorRole.PRIMARY_PAINT),
-                MeshBoxPart("nose_cone", 0f, 0.32f, 2.05f, 0.72f, 0.24f, 0.95f, PartColorRole.PRIMARY_PAINT, pitchDeg = 8f),
+                MeshBoxPart("monocoque", 0f, 0.38f, 0.15f, 1.18f, 0.40f, 4.35f, PartColorRole.PRIMARY_PAINT, topWidthScale = 0.88f, topLengthScale = 0.94f),
+                MeshBoxPart("nose_cone", 0f, 0.32f, 2.05f, 0.72f, 0.24f, 0.95f, PartColorRole.PRIMARY_PAINT, pitchDeg = 8f, topWidthScale = 0.52f, topLengthScale = 0.90f),
                 MeshBoxPart("front_wing", 0f, 0.18f, 2.38f, 2.22f, 0.10f, 0.46f, PartColorRole.SECONDARY_TRIM),
                 MeshBoxPart("front_wing_glow", 0f, 0.24f, 2.48f, 2.18f, 0.05f, 0.10f, PartColorRole.ACCENT_GLOW),
-                MeshBoxPart("sidepod_l", -0.84f, 0.38f, -0.35f, 0.56f, 0.36f, 2.05f, PartColorRole.PRIMARY_PAINT),
-                MeshBoxPart("sidepod_r", 0.84f, 0.38f, -0.35f, 0.56f, 0.36f, 2.05f, PartColorRole.PRIMARY_PAINT),
+                MeshBoxPart("sidepod_l", -0.84f, 0.38f, -0.35f, 0.56f, 0.36f, 2.05f, PartColorRole.PRIMARY_PAINT, topWidthScale = 0.88f, topLengthScale = 0.94f),
+                MeshBoxPart("sidepod_r", 0.84f, 0.38f, -0.35f, 0.56f, 0.36f, 2.05f, PartColorRole.PRIMARY_PAINT, topWidthScale = 0.88f, topLengthScale = 0.94f),
                 MeshBoxPart("cockpit_rim", 0f, 0.64f, -0.05f, 0.96f, 0.22f, 1.25f, PartColorRole.GLASS_TINT),
                 MeshBoxPart("shark_fin", 0f, 0.88f, -1.22f, 0.10f, 0.58f, 1.55f, PartColorRole.SECONDARY_TRIM),
                 MeshBoxPart("rear_wing", 0f, 1.12f, -2.06f, 2.14f, 0.12f, 0.48f, PartColorRole.PRIMARY_PAINT),

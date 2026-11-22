@@ -94,7 +94,8 @@ fun CarSelectionScreen(
             Vehicle3DPreview(
                 vehicle = currentVehicle,
                 paintColor = currentColor,
-                autoRotate = false,
+                autoRotate = true,
+                garageLighting = true,
                 interactiveDrag = true,
                 zoomScale = 1.12f,
                 modifier = Modifier

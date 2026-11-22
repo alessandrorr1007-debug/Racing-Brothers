@@ -59,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.example.racingbrothers.vehicles.BalancedV1Stats
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -493,6 +494,14 @@ private fun RaceSpeedometer(speedKmh: Int, width: Dp, modifier: Modifier = Modif
                 softWrap = false,
                 modifier = Modifier.testTag("hud_speedometer")
             )
+            val speedFraction = (speedKmh / (BalancedV1Stats.MAX_SPEED_MPS * 3.6f)).coerceIn(0f, 1f)
+            Box(
+                Modifier.fillMaxWidth().height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(TrackBorderBlue)
+            ) {
+                Box(Modifier.fillMaxWidth(speedFraction).height(3.dp).background(ElectricBlue))
+            }
         }
     }
 }
