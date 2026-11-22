@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -136,7 +137,7 @@ fun CharacterSelectionScreen(
             Row(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(start = 8.dp, top = 10.dp, end = 8.dp),
+                    .padding(start = 64.dp, top = 8.dp, end = 64.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
@@ -149,6 +150,8 @@ fun CharacterSelectionScreen(
                 Text(
                     text = stringResource(R.string.car_drag_hint),
                     fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     color = SilverMist,
                     textAlign = TextAlign.Center
                 )
@@ -241,6 +244,8 @@ fun CharacterSelectionScreen(
                                 text = ch.displayName.uppercase(),
                                 fontFamily = OrbitronFontFamily,
                                 fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 color = if (selected) IceWhite else SilverMist,
                                 textAlign = TextAlign.Center
                             )

@@ -48,6 +48,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -152,7 +153,7 @@ fun CarSelectionScreen(
             Row(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(start = 8.dp, top = 10.dp, end = 8.dp),
+                    .padding(start = 64.dp, top = 8.dp, end = 64.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
@@ -165,6 +166,8 @@ fun CarSelectionScreen(
                 Text(
                     text = stringResource(R.string.car_drag_hint),
                     fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     color = SilverMist,
                     textAlign = TextAlign.Center
                 )

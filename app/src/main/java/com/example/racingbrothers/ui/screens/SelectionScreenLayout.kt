@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -168,6 +169,7 @@ private fun SelectionTopBar(
                 OutlinedButton(
                     onClick = onBack,
                     border = BorderStroke(1.dp, TrackBorderBlue),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     modifier = Modifier.heightIn(min = 48.dp).testTag(backTag)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = IceWhite)
@@ -190,10 +192,12 @@ private fun SelectionTopBar(
                         Text(
                             text = "SALA $roomCode",
                             fontFamily = JetBrainsMonoFontFamily,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            softWrap = false,
                             color = NeonCyan,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                         )
                     }
                 }

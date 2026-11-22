@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -58,14 +60,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.R
 import com.example.racingbrothers.camera.CameraMode
 import com.example.racingbrothers.characters.CharacterCatalog
@@ -131,24 +137,38 @@ fun MainMenuScreen(
         val safeInsets = WindowInsets.safeDrawing
         val safePadding = safeInsets.asPaddingValues()
         val layoutDirection = LocalLayoutDirection.current
+        val fontScale = LocalDensity.current.fontScale
         val availableWidth = maxWidth - safePadding.calculateLeftPadding(layoutDirection) -
             safePadding.calculateRightPadding(layoutDirection)
         val availableHeight = maxHeight - safePadding.calculateTopPadding() - safePadding.calculateBottomPadding()
+        val effectiveWidth = availableWidth / fontScale
         val narrow = availableWidth < 640.dp
+        val compactText = effectiveWidth < 560.dp || availableHeight < 340.dp
+        val stacked = availableWidth < 460.dp
         val horizontalPadding = if (narrow) 12.dp else 24.dp
         val verticalPadding = if (availableHeight < 360.dp) 8.dp else 16.dp
         val panelHeight = (availableHeight - verticalPadding * 2).coerceAtLeast(0.dp)
-        Row(
-            modifier = Modifier.fillMaxSize()
-                .windowInsetsPadding(safeInsets)
-                .padding(horizontalPadding, verticalPadding),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+
+        val racingFontSize = when {
+            effectiveWidth < 400.dp -> 20.sp
+            effectiveWidth < 540.dp -> 24.sp
+            else -> 30.sp
+        }
+        val brothersFontSize = when {
+            effectiveWidth < 400.dp -> 16.sp
+            effectiveWidth < 540.dp -> 19.sp
+            else -> 24.sp
+        }
+        val racingLetterSpacing = if (compactText) 2.sp else 4.sp
+        val brothersLetterSpacing = if (compactText) 2.sp else 5.sp
+        val actionButtonPadding = PaddingValues(
+            horizontal = if (compactText) 12.dp else 20.dp,
+            vertical = 8.dp
+        )
+
+        val menuPanelContent: @Composable (Modifier) -> Unit = { panelModifier ->
             Column(
-                modifier = Modifier
-                    .weight(0.47f)
-                    .verticalScroll(rememberScrollState())
-                    .heightIn(min = panelHeight),
+                modifier = panelModifier,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 // Top: Logo & subtitle
@@ -160,20 +180,22 @@ fun MainMenuScreen(
                         Box(
                             modifier = Modifier
                                 .width(5.dp)
-                                .height(46.dp)
+                                .height(if (compactText) 38.dp else 46.dp)
                                 .background(
                                     Brush.verticalGradient(listOf(NeonCyan, ElectricBlue)),
                                     RoundedCornerShape(4.dp)
                                 )
                         )
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(if (compactText) 8.dp else 12.dp))
                         Column {
                             Text(
                                 text = stringResource(R.string.brand_title_racing),
                                 fontFamily = OrbitronFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 30.sp,
-                                letterSpacing = 4.sp,
+                                fontSize = racingFontSize,
+                                letterSpacing = racingLetterSpacing,
+                                maxLines = 1,
+                                softWrap = false,
                                 color = IceWhite,
                                 modifier = Modifier.testTag("logo_racing")
                             )
@@ -181,8 +203,10 @@ fun MainMenuScreen(
                                 text = stringResource(R.string.brand_title_brothers),
                                 fontFamily = OrbitronFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                letterSpacing = 5.sp,
+                                fontSize = brothersFontSize,
+                                letterSpacing = brothersLetterSpacing,
+                                maxLines = 1,
+                                softWrap = false,
                                 color = ElectricBlue,
                                 modifier = Modifier.testTag("logo_brothers")
                             )
@@ -192,8 +216,8 @@ fun MainMenuScreen(
                     Text(
                         text = stringResource(R.string.brand_subtitle),
                         fontFamily = JetBrainsMonoFontFamily,
-                        fontSize = 11.sp,
-                        letterSpacing = 1.4.sp,
+                        fontSize = if (compactText) 10.sp else 11.sp,
+                        letterSpacing = if (compactText) 0.8.sp else 1.4.sp,
                         color = SilverMist
                     )
                 }
@@ -211,6 +235,7 @@ fun MainMenuScreen(
                             contentColor = VoidBlack
                         ),
                         shape = RoundedCornerShape(14.dp),
+                        contentPadding = actionButtonPadding,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = if (panelHeight < 340.dp) 48.dp else 56.dp)
@@ -219,13 +244,14 @@ fun MainMenuScreen(
                         Icon(
                             imageVector = Icons.Filled.AddCircle,
                             contentDescription = null,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(if (compactText) 18.dp else 22.dp)
                         )
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.btn_create_room),
                             style = MaterialTheme.typography.labelLarge,
-                            fontSize = 16.sp
+                            fontSize = if (compactText) 13.sp else 16.sp,
+                            textAlign = TextAlign.Center
                         )
                     }
 
@@ -238,6 +264,7 @@ fun MainMenuScreen(
                             contentColor = IceWhite
                         ),
                         shape = RoundedCornerShape(14.dp),
+                        contentPadding = actionButtonPadding,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = if (panelHeight < 340.dp) 48.dp else 54.dp)
@@ -247,13 +274,14 @@ fun MainMenuScreen(
                             imageVector = Icons.Filled.GroupAdd,
                             contentDescription = null,
                             tint = ElectricBlue,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(if (compactText) 18.dp else 22.dp)
                         )
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.btn_join_room),
                             style = MaterialTheme.typography.labelLarge,
-                            fontSize = 15.sp,
+                            fontSize = if (compactText) 13.sp else 15.sp,
+                            textAlign = TextAlign.Center,
                             color = IceWhite
                         )
                     }
@@ -284,15 +312,10 @@ fun MainMenuScreen(
                     }
                 }
             }
+        }
 
-            Spacer(Modifier.width(if (narrow) 8.dp else 16.dp))
-
-            // RIGHT PANEL: Animated 3D Showroom Car + Discreet Settings Button
-            Box(
-                modifier = Modifier
-                    .weight(0.53f)
-                    .fillMaxHeight()
-            ) {
+        val showroomPanelContent: @Composable (Modifier) -> Unit = { previewModifier ->
+            Box(modifier = previewModifier) {
                 Vehicle3DPreview(
                     vehicle = selectedVehicle,
                     paintColor = selectedColor,
@@ -333,10 +356,10 @@ fun MainMenuScreen(
                     border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.45f)),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(bottom = 4.dp)
+                        .padding(start = 8.dp, bottom = 4.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -348,11 +371,52 @@ fun MainMenuScreen(
                         Text(
                             text = "${selectedVehicle.displayName.uppercase()} · ${selectedDriver.callsign}",
                             fontFamily = OrbitronFontFamily,
-                            fontSize = 11.sp,
+                            fontSize = if (compactText) 10.sp else 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             color = IceWhite
                         )
                     }
                 }
+            }
+        }
+
+        if (stacked) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(safeInsets)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontalPadding, verticalPadding),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                showroomPanelContent(
+                    Modifier
+                        .fillMaxWidth()
+                        .height((availableHeight * 0.42f).coerceIn(150.dp, 240.dp))
+                )
+                menuPanelContent(Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(safeInsets)
+                    .padding(horizontalPadding, verticalPadding),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                menuPanelContent(
+                    Modifier
+                        .weight(0.47f)
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(min = panelHeight)
+                )
+                Spacer(Modifier.width(if (narrow) 8.dp else 16.dp))
+                showroomPanelContent(
+                    Modifier
+                        .weight(0.53f)
+                        .fillMaxHeight()
+                )
             }
         }
     }
@@ -408,18 +472,23 @@ private fun SettingsDialog(
     var soundEnabled by rememberSaveable { mutableStateOf(preferences.soundEnabled) }
     var graphicsQuality by rememberSaveable { mutableStateOf(preferences.graphicsQuality) }
     var cameraMode by rememberSaveable { mutableStateOf(preferences.preferredCameraMode) }
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
             color = AsphaltNavy,
             shape = RoundedCornerShape(18.dp),
             border = BorderStroke(1.5.dp, ElectricBlue.copy(alpha = 0.8f)),
             modifier = Modifier
+                .padding(16.dp)
+                .widthIn(max = 560.dp)
                 .fillMaxWidth()
                 .testTag("settings_dialog")
         ) {
             Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = stringResource(R.string.settings_title),

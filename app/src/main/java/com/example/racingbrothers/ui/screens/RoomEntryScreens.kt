@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -151,8 +152,10 @@ fun CreateRoomScreen(
                     text = roomCode.chunked(3).joinToString(" - "),
                     fontFamily = JetBrainsMonoFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = if (compact) 32.sp else 40.sp,
-                    letterSpacing = if (compact) 2.sp else 4.sp,
+                    fontSize = if (compact) 28.sp else 40.sp,
+                    letterSpacing = if (compact) 1.5.sp else 4.sp,
+                    maxLines = 1,
+                    softWrap = false,
                     color = NeonCyan,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.testTag("created_room_code")
@@ -283,7 +286,8 @@ fun JoinRoomScreen(
             ),
             textStyle = MaterialTheme.typography.headlineLarge.copy(
                 fontFamily = JetBrainsMonoFontFamily,
-                letterSpacing = 6.sp,
+                fontSize = if (compact) 20.sp else 22.sp,
+                letterSpacing = if (compact) 3.sp else 6.sp,
                 textAlign = TextAlign.Center,
                 color = NeonCyan
             ),
@@ -291,7 +295,8 @@ fun JoinRoomScreen(
                 Text(
                     text = "048219",
                     fontFamily = JetBrainsMonoFontFamily,
-                    letterSpacing = 6.sp,
+                    fontSize = if (compact) 20.sp else 22.sp,
+                    letterSpacing = if (compact) 3.sp else 6.sp,
                     textAlign = TextAlign.Center,
                     color = SilverMist.copy(alpha = 0.35f),
                     modifier = Modifier.fillMaxWidth()
@@ -376,14 +381,18 @@ private fun RoomEntryLayout(
             .background(Brush.verticalGradient(listOf(VoidBlack, AsphaltNavy)))
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        val narrow = maxWidth < 640.dp
-        val compact = narrow || maxHeight < 360.dp
-        val scrollWholeScreen = maxHeight < 160.dp + 50.dp * LocalDensity.current.fontScale
+        val availableWidth = maxWidth
+        val availableHeight = maxHeight
+        val fontScale = LocalDensity.current.fontScale
+        val narrow = availableWidth < 640.dp
+        val compact = narrow || availableHeight < 360.dp || fontScale > 1.25f
+        val stackedHeader = availableWidth / fontScale < 460.dp
+        val scrollWholeScreen = availableHeight < 160.dp + 50.dp * fontScale
         val screenScroll = rememberScrollState()
         val cardScroll = rememberScrollState()
         val spacing = if (compact) 6.dp else 12.dp
-        val maxBackWidth = maxWidth * 0.4f
-        val maxBadgeWidth = maxWidth * 0.3f
+        val maxBackWidth = availableWidth * if (stackedHeader) 0.58f else 0.4f
+        val maxBadgeWidth = availableWidth * if (stackedHeader) 0.38f else 0.3f
 
         Column(
             modifier = Modifier.fillMaxSize()
@@ -391,31 +400,49 @@ private fun RoomEntryLayout(
                 .padding(horizontal = if (narrow) 12.dp else 24.dp, vertical = if (compact) 6.dp else 14.dp),
             verticalArrangement = Arrangement.spacedBy(spacing)
         ) {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                OutlinedButton(
-                    onClick = onBack,
-                    border = BorderStroke(1.dp, TrackBorderBlue),
-                    modifier = Modifier.widthIn(max = maxBackWidth)
-                        .heightIn(min = 48.dp)
-                        .testTag(backTag)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (stackedHeader) Arrangement.SpaceBetween else Arrangement.spacedBy(spacing),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = IceWhite)
-                    Spacer(Modifier.width(6.dp))
-                    Text(backLabel, color = IceWhite, fontSize = 12.sp)
+                    OutlinedButton(
+                        onClick = onBack,
+                        border = BorderStroke(1.dp, TrackBorderBlue),
+                        contentPadding = PaddingValues(horizontal = if (compact) 10.dp else 16.dp, vertical = 8.dp),
+                        modifier = Modifier.widthIn(max = maxBackWidth)
+                            .heightIn(min = 48.dp)
+                            .testTag(backTag)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = IceWhite)
+                        Spacer(Modifier.width(6.dp))
+                        Text(backLabel, color = IceWhite, fontSize = 12.sp)
+                    }
+                    if (!stackedHeader) {
+                        Text(
+                            text = title,
+                            style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge,
+                            color = ElectricBlue,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Box(Modifier.widthIn(max = maxBadgeWidth)) {
+                        ConnectionBadge(status = connectionStatus)
+                    }
                 }
-                Text(
-                    text = title,
-                    style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge,
-                    color = ElectricBlue,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f)
-                )
-                Box(Modifier.widthIn(max = maxBadgeWidth)) {
-                    ConnectionBadge(status = connectionStatus)
+                if (stackedHeader) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = ElectricBlue,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
             Box(

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -68,6 +69,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -95,6 +97,7 @@ import com.example.ui.theme.SilverMist
 import com.example.ui.theme.TrackBorderBlue
 import com.example.ui.theme.VoidBlack
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RaceHudOverlay(
     sessionState: MultiplayerUiState,
@@ -192,7 +195,7 @@ fun RaceHudOverlay(
                 contentAlignment = Alignment.Center
             ) {
                 val countdownSize = minOf(maxWidth, maxHeight, 132.dp)
-                AnimatedVisibility(
+                androidx.compose.animation.AnimatedVisibility(
                     visible = showCountdown && countdown != null,
                     enter = fadeIn(),
                     exit = fadeOut()
@@ -252,7 +255,7 @@ private fun RaceTelemetry(
                     text = "${hudSnapshot.positionRank}°/2",
                     fontFamily = OrbitronFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
+                    fontSize = if (compact) 16.sp else 20.sp,
                     color = if (hudSnapshot.positionRank == 1) ElectricBlue else SilverMist,
                     softWrap = false,
                     modifier = Modifier.align(Alignment.CenterVertically).testTag("hud_position")
@@ -262,7 +265,7 @@ private fun RaceTelemetry(
                     text = stringResource(R.string.hud_lap_format, hudSnapshot.currentLap, hudSnapshot.totalLaps),
                     fontFamily = OrbitronFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    fontSize = if (compact) 12.sp else 14.sp,
                     color = IceWhite,
                     modifier = Modifier.align(Alignment.CenterVertically).testTag("hud_lap_counter")
                 )
@@ -271,7 +274,7 @@ private fun RaceTelemetry(
                     text = formatRaceTime(hudSnapshot.elapsedMs),
                     fontFamily = JetBrainsMonoFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
+                    fontSize = if (compact) 13.sp else 15.sp,
                     color = NeonCyan,
                     softWrap = false,
                     modifier = Modifier.align(Alignment.CenterVertically).testTag("hud_timer")
@@ -600,11 +603,14 @@ private fun RaceResultsModal(
             .background(VoidBlack.copy(alpha = 0.78f)),
         contentAlignment = Alignment.Center
     ) {
+        val modalMaxWidth = maxWidth
+        val modalMaxHeight = maxHeight
         val fontScale = LocalDensity.current.fontScale
-        val compact = maxWidth / fontScale < 620.dp || maxHeight < 350.dp
+        val compact = modalMaxWidth / fontScale < 620.dp || modalMaxHeight < 350.dp
         val margin = if (compact) 8.dp else 10.dp
         val panelPadding = if (compact) 12.dp else 22.dp
         val gap = if (compact) 8.dp else 12.dp
+        val modalButtonPadding = PaddingValues(horizontal = if (compact) 10.dp else 18.dp, vertical = 8.dp)
         Surface(
             color = AsphaltNavy,
             shape = RoundedCornerShape(20.dp),
@@ -694,11 +700,12 @@ private fun RaceResultsModal(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(gap),
                     verticalArrangement = Arrangement.spacedBy(gap),
-                    maxItemsInEachRow = if (maxWidth / fontScale < 320.dp) 1 else 2
+                    maxItemsInEachRow = if (modalMaxWidth / fontScale < 340.dp) 1 else 2
                 ) {
                     OutlinedButton(
                         onClick = onExitToMenu,
                         border = BorderStroke(1.5.dp, TrackBorderBlue),
+                        contentPadding = modalButtonPadding,
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = 48.dp)
@@ -708,7 +715,8 @@ private fun RaceResultsModal(
                             text = stringResource(R.string.btn_back_to_menu),
                             color = IceWhite,
                             fontFamily = OrbitronFontFamily,
-                            fontSize = 12.sp
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center
                         )
                     }
 
@@ -719,6 +727,7 @@ private fun RaceResultsModal(
                             containerColor = ElectricBlue,
                             contentColor = VoidBlack
                         ),
+                        contentPadding = modalButtonPadding,
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = 48.dp)
@@ -738,7 +747,8 @@ private fun RaceResultsModal(
                             },
                             fontFamily = OrbitronFontFamily,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
