@@ -122,7 +122,6 @@ class AdaptiveScreensRobolectricTest {
     fun `compact landscape lobby keeps room code, both player cards, ready and start reachable`() {
         var started = false
         var toggledReady = false
-        composeRule.mainClock.autoAdvance = false
         setContent(fontScale = 1.5f) {
             LobbyScreen(
                 multiplayerState = MultiplayerUiState(
@@ -162,18 +161,14 @@ class AdaptiveScreensRobolectricTest {
                 onLaunchRaceActivity = {}
             )
         }
-        advanceUi()
-
-        composeRule.reachManual("lobby_room_code").assertTextContains("004821")
-        composeRule.reachManual("btn_lobby_leave")
-        composeRule.reachManual("lobby_player_1_card")
-        composeRule.reachManual("lobby_player_2_card")
-        composeRule.reachManual("btn_lobby_ready").performClick()
-        advanceUi()
-        assertTrue(toggledReady)
-        composeRule.reachManual("btn_start_race").assertIsEnabled().performClick()
-        advanceUi()
-        assertTrue(started)
+        composeRule.reach("lobby_room_code").assertTextContains("004821")
+        composeRule.reach("btn_lobby_leave")
+        composeRule.reach("lobby_player_1_card")
+        composeRule.reach("lobby_player_2_card")
+        composeRule.reach("btn_lobby_ready").performClick()
+        composeRule.runOnIdle { assertTrue(toggledReady) }
+        composeRule.reach("btn_start_race").assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertTrue(started) }
         composeRule.onNodeWithText("wss://", substring = true).assertDoesNotExist()
         composeRule.onNodeWithText("Servidor listo", substring = true).assertDoesNotExist()
     }

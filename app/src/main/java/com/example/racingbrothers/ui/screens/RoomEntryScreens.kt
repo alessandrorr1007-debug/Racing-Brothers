@@ -81,6 +81,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -317,7 +318,6 @@ fun JoinRoomScreen(
     val coroutineScope = rememberCoroutineScope()
 
     fun showNumericKeyboard() {
-        runCatching { focusRequester.requestFocus() }
         keyboardController?.show()
         view.post {
             view.requestFocus()
@@ -336,19 +336,6 @@ fun JoinRoomScreen(
     DisposableEffect(Unit) {
         onStartHealthMonitor()
         onDispose { onStopHealthMonitor() }
-    }
-
-    // Focus input immediately on entry.
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
-    // Once the window finishes transitioning and gains focus, open the real numeric IME.
-    LaunchedEffect(windowInfo.isWindowFocused) {
-        if (windowInfo.isWindowFocused) {
-            delay(120)
-            showNumericKeyboard()
-        }
     }
 
     // Re-open the numeric keyboard on every tap inside the field, even when it already has focus.
@@ -477,6 +464,16 @@ fun JoinRoomScreen(
                     }
                     .testTag("input_join_room_code")
             )
+
+            // This content is subcomposed by the responsive layout. Wait until the field
+            // has been applied here before requesting focus or opening the IME.
+            LaunchedEffect(windowInfo.isWindowFocused) {
+                focusRequester.requestFocus()
+                if (windowInfo.isWindowFocused) {
+                    delay(120)
+                    showNumericKeyboard()
+                }
+            }
 
             val displayedError = when {
                 localFormatError -> stringResource(R.string.error_invalid_code)
@@ -732,11 +729,13 @@ private fun ConnectionBadgeChip(
     Surface(
         color = CockpitSlate,
         shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.75f)),
-        modifier = Modifier.testTag("connection_status_badge")
+        border = BorderStroke(1.dp, color.copy(alpha = 0.75f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier
+                .testTag("connection_status_badge")
+                .semantics(mergeDescendants = true) {}
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {

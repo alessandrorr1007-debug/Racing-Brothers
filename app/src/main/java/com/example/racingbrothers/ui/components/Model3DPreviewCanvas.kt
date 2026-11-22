@@ -1,14 +1,17 @@
 package com.example.racingbrothers.ui.components
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -165,19 +168,14 @@ private fun Interactive3DViewport(
     var yawDeg by remember { mutableFloatStateOf(initialYawDeg) }
     var pitchDeg by remember { mutableFloatStateOf(initialPitchDeg) }
 
-    LaunchedEffect(autoRotate) {
-        if (!autoRotate) return@LaunchedEffect
-        var lastNanos = 0L
-        while (true) {
-            withFrameNanos { frameNanos ->
-                if (lastNanos != 0L) {
-                    val dt = ((frameNanos - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
-                    yawDeg = (yawDeg + 28f * dt) % 360f
-                }
-                lastNanos = frameNanos
-            }
-        }
-    }
+    val turntableRotation = if (autoRotate) {
+        rememberInfiniteTransition(label = "Vehicle turntable").animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(tween(12_857, easing = LinearEasing)),
+            label = "Turntable rotation"
+        )
+    } else null
 
     val dragModifier = if (interactiveDrag) {
         Modifier.pointerInput(Unit) {
@@ -203,7 +201,7 @@ private fun Interactive3DViewport(
         // Glowing motorsport turntable pedestal under the 3D model
         drawTurntablePedestal(cx = cx, cy = cy + minOf(w, h) * 0.24f, radiusX = minOf(w, h) * 0.42f, radiusY = minOf(w, h) * 0.13f)
 
-        val yawRad = Math.toRadians(yawDeg.toDouble()).toFloat()
+        val yawRad = Math.toRadians((yawDeg + (turntableRotation?.value ?: 0f)).toDouble()).toFloat()
         val pitchRad = Math.toRadians(pitchDeg.toDouble()).toFloat()
         val cosY = cos(yawRad)
         val sinY = sin(yawRad)
