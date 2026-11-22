@@ -16,3 +16,10 @@
 local.properties
 .env
 debug.keystore
+/backend/node_modules/
+/backend/.wrangler/
+/backend/.dev.vars
+/backend/.dev.vars.*
+!/backend/.dev.vars.example
+/backend/.env.*
+!/backend/.env.example

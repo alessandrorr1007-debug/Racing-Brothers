@@ -3,6 +3,7 @@
   "name": "racing-brothers",
   "main": "src/index.mjs",
   "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["web_socket_auto_reply_to_close"],
   "workers_dev": true,
   "durable_objects": {
     "bindings": [
