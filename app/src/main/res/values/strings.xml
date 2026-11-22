@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Racing Brothers</string>
+    <string name="brand_title_racing">RACING</string>
+    <string name="brand_title_brothers">BROTHERS</string>
+    <string name="brand_subtitle">DUELO ARCADE 3D · 1 VS 1 ONLINE</string>
+
+    <!-- Main Menu -->
+    <string name="btn_create_room">CREAR SALA</string>
+    <string name="btn_join_room">UNIRSE A SALA</string>
+    <string name="btn_settings">Ajustes</string>
+    <string name="server_status_unconfigured">Servidor no configurado</string>
+    <string name="server_status_configured">Servidor listo</string>
+    <string name="server_status_connected">Conectado</string>
+    <string name="server_status_connecting">Conectando…</string>
+    <string name="server_status_reconnecting">Reconectando…</string>
+    <string name="server_unconfigured_hint">Configura la URL WSS de tu Cloudflare Worker en Ajustes para jugar online.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">AJUSTES</string>
+    <string name="settings_sound_label">Efectos de sonido</string>
+    <string name="settings_graphics_label">Calidad gráfica 3D</string>
+    <string name="settings_graphics_high">Alta (60 FPS)</string>
+    <string name="settings_graphics_low">Reducida (Ahorro)</string>
+    <string name="settings_camera_label">Cámara inicial</string>
+    <string name="settings_server_label">Endpoint del servidor (WSS)</string>
+    <string name="settings_server_placeholder">wss://racing-brothers.tu-subdominio.workers.dev</string>
+    <string name="settings_server_helper">Requiere wss:// en producción. Para emulador local usa ws://10.0.2.2:8787</string>
+    <string name="settings_save">GUARDAR</string>
+    <string name="settings_close">CERRAR</string>
+
+    <!-- Room Creation / Join -->
+    <string name="create_room_title">SALA PRIVADA</string>
+    <string name="join_room_title">UNIRSE A SALA</string>
+    <string name="room_code_label">CÓDIGO DE SALA</string>
+    <string name="room_code_input_hint">Ingresa el código de 6 dígitos</string>
+    <string name="btn_copy_code">COPIAR</string>
+    <string name="btn_share_code">COMPARTIR</string>
+    <string name="btn_continue_garage">ELEGIR AUTO</string>
+    <string name="btn_connect_room">CONECTAR</string>
+    <string name="btn_leave_room">SALIR DE LA SALA</string>
+    <string name="btn_back">VOLVER</string>
+    <string name="share_room_message">¡Únete a mi carrera 1 vs 1 en Racing Brothers! Código de sala: %1$s</string>
+    <string name="code_copied_toast">Código copiado</string>
+    <string name="error_invalid_code">El código debe tener exactamente 6 dígitos numéricos (0-9).</string>
+
+    <!-- Car & Character Selection -->
+    <string name="car_selection_title">SELECCIÓN DE AUTOMÓVIL</string>
+    <string name="car_balanced_note">V1: Rendimiento idéntico en todos los autos</string>
+    <string name="car_drag_hint">Arrastra para girar 360°</string>
+    <string name="car_color_label">COLOR DE CARROCERÍA</string>
+    <string name="btn_confirm_car">CONFIRMAR AUTO</string>
+
+    <string name="character_selection_title">SELECCIÓN DE PILOTO</string>
+    <string name="character_paired_with">Asignado a %1$s</string>
+    <string name="btn_confirm_character">CONFIRMAR PILOTO</string>
+
+    <!-- Lobby -->
+    <string name="lobby_title">LOBBY 1 VS 1</string>
+    <string name="player_1_label">JUGADOR 1 · ANFITRIÓN</string>
+    <string name="player_2_label">JUGADOR 2 · INVITADO</string>
+    <string name="waiting_opponent">Esperando al segundo jugador…</string>
+    <string name="status_ready">LISTO</string>
+    <string name="status_not_ready">NO LISTO</string>
+    <string name="status_online">CONECTADO</string>
+    <string name="status_offline">DESCONECTADO</string>
+    <string name="btn_ready">LISTO</string>
+    <string name="btn_cancel_ready">CANCELAR LISTO</string>
+    <string name="btn_start_race">INICIAR CARRERA</string>
+    <string name="btn_edit_setup">CAMBIAR AUTO / PILOTO</string>
+    <string name="lobby_need_two_ready">Ambos jugadores deben conectarse y marcar LISTO</string>
+    <string name="lobby_waiting_host">Esperando que el anfitrión inicie la carrera…</string>
+
+    <!-- Race HUD & Results -->
+    <string name="btn_change_camera">CAMBIAR VISTA</string>
+    <string name="camera_close_label">CERCANA</string>
+    <string name="camera_wide_label">LEJANA</string>
+    <string name="hud_lap_format">VUELTA %1$d/%2$d</string>
+    <string name="hud_speed_unit">KM/H</string>
+    <string name="hud_accelerate">ACELERAR</string>
+    <string name="hud_brake">FRENO</string>
+    <string name="hud_go">¡GO!</string>
+    <string name="results_title">RESULTADOS DE CARRERA</string>
+    <string name="results_winner_banner">GANADOR: %1$s</string>
+    <string name="results_total_time">TIEMPO TOTAL</string>
+    <string name="btn_rematch">REVANCHA</string>
+    <string name="rematch_waiting">REVANCHA (%1$d/2)</string>
+    <string name="btn_back_to_menu">VOLVER AL MENÚ</string>
+    <string name="race_reconnecting_banner">Conexión interrumpida — reconectando con la sala…</string>
+    <string name="race_opponent_disconnected">Rival desconectado — esperando reconexión…</string>
+</resources>

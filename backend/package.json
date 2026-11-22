@@ -1,0 +1,16 @@
+{
+  "name": "racing-brothers",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Workers + SQLite Durable Objects WebSocket multiplayer backend for Racing Brothers V1",
+  "scripts": {
+    "dev": "wrangler dev",
+    "check": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.14.0"
+  }
+}

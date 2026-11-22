@@ -1,0 +1,304 @@
+package com.example.racingbrothers.tracks
+
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+data class TrackPoint(
+    val x: Float,
+    val z: Float,
+    val dirX: Float,
+    val dirZ: Float,
+    val rightX: Float,
+    val rightZ: Float,
+    val cumulativeDist: Float
+)
+
+data class TrackCheckpoint(
+    val index: Int,
+    val x: Float,
+    val z: Float,
+    val dirX: Float,
+    val dirZ: Float,
+    val radius: Float
+)
+
+data class TrackQueryResult(
+    val segmentIndex: Int,
+    val signedLateralOffset: Float,
+    val closestX: Float,
+    val closestZ: Float,
+    val tangentX: Float,
+    val tangentZ: Float,
+    val rightX: Float,
+    val rightZ: Float,
+    val distAlongTrack: Float
+)
+
+data class SceneryProp(
+    val x: Float,
+    val z: Float,
+    val yawDeg: Float,
+    val kind: PropKind
+)
+
+enum class PropKind {
+    FLOODLIGHT_TOWER,
+    GRANDSTAND,
+    TREE_CLUSTER,
+    CHEVRON_SIGN
+}
+
+/**
+ * Circuito Neon Bay — Closed arcade circuit with straights, sweeping turns, an S-chicane,
+ * hairpin, curbs, guardrails, 6 ordered checkpoints, and 3-lap race rules.
+ *
+ * The checkpoint coordinates & radii here are mirrored verbatim in the Cloudflare Worker
+ * backend validation module so client physics and server validation stay 100% in sync.
+ */
+object CircuitTrack {
+    const val TRACK_ID = "neon_bay_v1"
+    const val TRACK_NAME = "Circuito Neon Bay"
+    const val TOTAL_LAPS = 3
+    const val ROAD_HALF_WIDTH = 9.5f        // 19m asphalt width for exciting 1v1 overtakes
+    const val BARRIER_HALF_WIDTH = 11.2f    // Guardrail collision boundary
+    const val CHECKPOINT_COUNT = 6
+
+    // Control points forming an engaging closed loop (counter-clockwise / clockwise consistent)
+    private val controlPoints: List<Pair<Float, Float>> = listOf(
+        0f to 0f,          // Start/Finish straight
+        0f to 85f,         // Fast straight into Turn 1
+        28f to 148f,       // Wide sweeping Turn 1
+        98f to 164f,       // North back-stretch entry
+        162f to 132f,      // Fast right sweeper
+        178f to 62f,       // S-Chicane entry
+        132f to 16f,       // S-Chicane apex
+        166f to -46f,      // South-east curve
+        128f to -114f,     // Hairpin entry
+        56f to -118f,      // Hairpin exit
+        10f to -76f        // Final corner onto main straight
+    )
+
+    val samples: List<TrackPoint> by lazy { buildCatmullRomTrack(samplesPerSpan = 12) }
+    val totalLength: Float by lazy {
+        val last = samples.last()
+        val first = samples.first()
+        last.cumulativeDist + hypot(first.x - last.x, first.z - last.z)
+    }
+
+    val checkpoints: List<TrackCheckpoint> by lazy {
+        val count = CHECKPOINT_COUNT
+        val step = samples.size / count
+        (0 until count).map { idx ->
+            val pt = samples[(idx * step) % samples.size]
+            TrackCheckpoint(
+                index = idx,
+                x = pt.x,
+                z = pt.z,
+                dirX = pt.dirX,
+                dirZ = pt.dirZ,
+                radius = 15.0f
+            )
+        }
+    }
+
+    val sceneryProps: List<SceneryProp> by lazy { generateScenery() }
+
+    /**
+     * Starting grid slots for Player 1 (slot 0, left) and Player 2 (slot 1, right).
+     */
+    fun getStartSlot(slotIndex: Int): Triple<Float, Float, Float> {
+        val start = samples.first()
+        val lateral = if (slotIndex == 0) -3.2f else 3.2f
+        val backOffset = if (slotIndex == 0) -5.5f else -7.0f
+        val x = start.x + start.rightX * lateral + start.dirX * backOffset
+        val z = start.z + start.rightZ * lateral + start.dirZ * backOffset
+        val headingRad = atan2(start.dirX, start.dirZ)
+        return Triple(x, z, headingRad)
+    }
+
+    fun queryClosestPoint(x: Float, z: Float): TrackQueryResult {
+        var bestIdx = 0
+        var bestDistSq = Float.MAX_VALUE
+        var bestProjX = 0f
+        var bestProjZ = 0f
+        var bestT = 0f
+
+        val n = samples.size
+        for (i in 0 until n) {
+            val a = samples[i]
+            val b = samples[(i + 1) % n]
+            val abX = b.x - a.x
+            val abZ = b.z - a.z
+            val abLenSq = abX * abX + abZ * abZ
+            val t = if (abLenSq > 1e-5f) {
+                (((x - a.x) * abX + (z - a.z) * abZ) / abLenSq).coerceIn(0f, 1f)
+            } else 0f
+            val px = a.x + abX * t
+            val pz = a.z + abZ * t
+            val dx = x - px
+            val dz = z - pz
+            val dSq = dx * dx + dz * dz
+            if (dSq < bestDistSq) {
+                bestDistSq = dSq
+                bestIdx = i
+                bestProjX = px
+                bestProjZ = pz
+                bestT = t
+            }
+        }
+
+        val a = samples[bestIdx]
+        val b = samples[(bestIdx + 1) % n]
+        val segLen = hypot(b.x - a.x, b.z - a.z)
+        val signedLateral = (x - bestProjX) * a.rightX + (z - bestProjZ) * a.rightZ
+
+        return TrackQueryResult(
+            segmentIndex = bestIdx,
+            signedLateralOffset = signedLateral,
+            closestX = bestProjX,
+            closestZ = bestProjZ,
+            tangentX = a.dirX,
+            tangentZ = a.dirZ,
+            rightX = a.rightX,
+            rightZ = a.rightZ,
+            distAlongTrack = a.cumulativeDist + segLen * bestT
+        )
+    }
+
+    fun isInsideCheckpoint(checkpointIndex: Int, x: Float, z: Float): Boolean {
+        val cp = checkpoints.getOrNull(checkpointIndex) ?: return false
+        val dx = x - cp.x
+        val dz = z - cp.z
+        return (dx * dx + dz * dz) <= (cp.radius * cp.radius)
+    }
+
+    /**
+     * Monotonic progress score for ranking 1st vs 2nd live during the race.
+     */
+    fun computeRaceProgress(completedLaps: Int, nextCheckpoint: Int, x: Float, z: Float): Float {
+        val q = queryClosestPoint(x, z)
+        val normalizedLoop = q.distAlongTrack / totalLength
+        // Guard against wrap-around right behind the start/finish line when nextCheckpoint == 1
+        val adjustedLoop = if (nextCheckpoint == 1 && normalizedLoop > 0.85f) {
+            normalizedLoop - 1f
+        } else if (nextCheckpoint == 0 && normalizedLoop < 0.15f) {
+            normalizedLoop + 1f
+        } else {
+            normalizedLoop
+        }
+        return completedLaps.toFloat() + adjustedLoop
+    }
+
+    private fun buildCatmullRomTrack(samplesPerSpan: Int): List<TrackPoint> {
+        val raw = mutableListOf<Pair<Float, Float>>()
+        val n = controlPoints.size
+        for (i in 0 until n) {
+            val p0 = controlPoints[(i - 1 + n) % n]
+            val p1 = controlPoints[i]
+            val p2 = controlPoints[(i + 1) % n]
+            val p3 = controlPoints[(i + 2) % n]
+            for (s in 0 until samplesPerSpan) {
+                val t = s.toFloat() / samplesPerSpan.toFloat()
+                val x = catmullRom(p0.first, p1.first, p2.first, p3.first, t)
+                val z = catmullRom(p0.second, p1.second, p2.second, p3.second, t)
+                raw.add(x to z)
+            }
+        }
+
+        val result = mutableListOf<TrackPoint>()
+        var cumulative = 0f
+        val count = raw.size
+        for (i in 0 until count) {
+            val prev = raw[(i - 1 + count) % count]
+            val curr = raw[i]
+            val next = raw[(i + 1) % count]
+            if (i > 0) {
+                cumulative += hypot(curr.first - prev.first, curr.second - prev.second)
+            }
+            val tx = next.first - prev.first
+            val tz = next.second - prev.second
+            val len = sqrt(tx * tx + tz * tz).coerceAtLeast(1e-4f)
+            val dirX = tx / len
+            val dirZ = tz / len
+            // Right-handed XZ right vector: cross(dir, up=(0,1,0)) = (-dirZ, dirX)
+            val rightX = -dirZ
+            val rightZ = dirX
+            result.add(TrackPoint(curr.first, curr.second, dirX, dirZ, rightX, rightZ, cumulative))
+        }
+        return result
+    }
+
+    private fun catmullRom(p0: Float, p1: Float, p2: Float, p3: Float, t: Float): Float {
+        val t2 = t * t
+        val t3 = t2 * t
+        return 0.5f * (
+            (2f * p1) +
+                (-p0 + p2) * t +
+                (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 +
+                (-p0 + 3f * p1 - 3f * p2 + p3) * t3
+            )
+    }
+
+    private fun generateScenery(): List<SceneryProp> {
+        val props = mutableListOf<SceneryProp>()
+        val n = samples.size
+        for (i in 0 until n) {
+            val pt = samples[i]
+            val yawDeg = (atan2(pt.dirX, pt.dirZ) * 180.0 / PI).toFloat()
+            // Stadium floodlight towers around the circuit
+            if (i % 14 == 0) {
+                val side = if ((i / 14) % 2 == 0) 1f else -1f
+                props.add(
+                    SceneryProp(
+                        x = pt.x + pt.rightX * (BARRIER_HALF_WIDTH + 7.5f) * side,
+                        z = pt.z + pt.rightZ * (BARRIER_HALF_WIDTH + 7.5f) * side,
+                        yawDeg = yawDeg,
+                        kind = PropKind.FLOODLIGHT_TOWER
+                    )
+                )
+            }
+            // Grandstands near start/finish straight and north straight
+            if (i in listOf(4, 12, 34, 42)) {
+                props.add(
+                    SceneryProp(
+                        x = pt.x - pt.rightX * (BARRIER_HALF_WIDTH + 12f),
+                        z = pt.z - pt.rightZ * (BARRIER_HALF_WIDTH + 12f),
+                        yawDeg = yawDeg,
+                        kind = PropKind.GRANDSTAND
+                    )
+                )
+            }
+            // Directional chevron signs on high-curvature turns
+            val next = samples[(i + 2) % n]
+            val cross = pt.dirX * next.dirZ - pt.dirZ * next.dirX
+            if (kotlin.math.abs(cross) > 0.14f && i % 4 == 0) {
+                val outside = if (cross > 0f) -1f else 1f
+                props.add(
+                    SceneryProp(
+                        x = pt.x + pt.rightX * (BARRIER_HALF_WIDTH + 2.2f) * outside,
+                        z = pt.z + pt.rightZ * (BARRIER_HALF_WIDTH + 2.2f) * outside,
+                        yawDeg = yawDeg,
+                        kind = PropKind.CHEVRON_SIGN
+                    )
+                )
+            }
+            // Decorative trees / pylons
+            if (i % 7 == 3) {
+                val side = if (i % 2 == 0) 1f else -1f
+                props.add(
+                    SceneryProp(
+                        x = pt.x + pt.rightX * (BARRIER_HALF_WIDTH + 16f) * side,
+                        z = pt.z + pt.rightZ * (BARRIER_HALF_WIDTH + 16f) * side,
+                        yawDeg = (i * 37f) % 360f,
+                        kind = PropKind.TREE_CLUSTER
+                    )
+                )
+            }
+        }
+        return props
+    }
+}
