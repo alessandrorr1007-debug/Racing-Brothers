@@ -7,36 +7,46 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-build-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  RELEASE_TAG: v0.1.0-test
+  APK_PATH: app/build/outputs/apk/debug/app-debug.apk
+  RELEASE_APK: Racing-Brothers-v0.1.0-test.apk
+
 jobs:
   build-apk:
     name: Build & Verify Racing Brothers APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK 36.1 & build-tools
+      - name: Configure Android SDK (platform 36.1 + build-tools)
+        shell: bash
         run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}"
+          echo "sdkmanager=$(command -v sdkmanager)"
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platform-tools" "build-tools;36.0.0" "platforms;android-36.1" || \
-            sdkmanager "platform-tools" "build-tools;36.0.0" "platforms;android-36"
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-36.1" \
+            "build-tools;36.0.0"
+          test -d "$ANDROID_HOME/platforms/android-36.1"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/apksigner"
 
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
@@ -44,25 +54,24 @@ jobs:
           gradle-version: 9.3.1
 
       - name: Prepare build prerequisites (debug keystore & .env.example)
+        shell: bash
         run: |
+          set -euo pipefail
           if [ ! -f .env.example ]; then
             echo "# Racing Brothers environment variables (optional)" > .env.example
           fi
           if [ ! -f debug.keystore ]; then
-            if [ -f debug.keystore.base64 ]; then
-              base64 --decode debug.keystore.base64 > debug.keystore
-            else
-              keytool -genkeypair -v \
-                -keystore debug.keystore \
-                -storepass android \
-                -alias androiddebugkey \
-                -keypass android \
-                -keyalg RSA \
-                -keysize 2048 \
-                -validity 10000 \
-                -dname "CN=Android Debug,O=Android,C=US"
-            fi
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
           fi
+          test -s debug.keystore
 
       - name: Run Android unit & Robolectric tests
         run: gradle :app:testDebugUnitTest --no-daemon
@@ -71,9 +80,9 @@ jobs:
         run: gradle :app:assembleDebug --no-daemon
 
       - name: Verify APK integrity, signature, manifest & libGDX natives
+        shell: bash
         run: |
           set -euo pipefail
-          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK_PATH"
           ls -lh "$APK_PATH"
 
@@ -93,6 +102,26 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Racing-Brothers-Android-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.APK_PATH }}
           retention-days: 30
           if-no-files-found: error
+
+      - name: Prepare release asset
+        shell: bash
+        run: cp "$APK_PATH" "$RELEASE_APK"
+
+      - name: Publish test release with downloadable APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Racing Brothers — prueba ${{ env.RELEASE_TAG }}
+          body: |
+            APK de depuración generado automáticamente desde `main`.
+
+            - Paquete: `com.aistudio.racingbrothers.kxmpzq`
+            - Descarga directa: `${{ env.RELEASE_APK }}`
+            - Compilación: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          prerelease: true
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: ${{ env.RELEASE_APK }}

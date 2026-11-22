@@ -104,6 +104,10 @@ Cada push a la rama `main` (o ejecución manual desde GitHub) ejecuta el workflo
 3. Haz clic en **`Racing-Brothers-Android-APK`** para descargar el archivo `.zip`.
 4. Descomprime el `.zip` para obtener `app-debug.apk` e instálalo en ambos celulares Android (habilitando *"Instalar apps desconocidas"* si Android lo solicita).
 
+### Descarga directa desde Releases
+
+Cuando la compilación termina correctamente, el workflow actualiza la release de prueba **`v0.1.0-test`** y adjunta `Racing-Brothers-v0.1.0-test.apk`. Puedes descargarla directamente desde **GitHub → Releases → v0.1.0-test**. El tag se reutiliza, por lo que no se crean releases duplicadas.
+
 ### Ejecutar una compilación manual
 1. Ve a **GitHub → Actions → Android Build**.
 2. Pulsa **Run workflow**, selecciona la rama `main` y confirma con **Run workflow**.
