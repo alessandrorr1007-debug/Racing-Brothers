@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION } from "./protocol/messages.mjs";
+import { DEFAULT_ROOM_CAPACITY, MAX_PLAYERS_PER_ROOM, PROTOCOL_VERSION } from "./protocol/messages.mjs";
 import { RaceRoomDO } from "./rooms/RaceRoomDO.mjs";
 import { generateRoomCode, isValidRoomCode } from "./validation/validator.mjs";
 
@@ -65,8 +65,20 @@ export default {
       );
     }
 
-    // Create private 2-player room and initialize its Durable Object instance
+    // Legacy callers may still create a two-player room without a request body.
     if (request.method === "POST" && path === "/api/rooms") {
+      const text = await request.text();
+      let maxPlayers;
+      try {
+        const body = text.trim() ? JSON.parse(text) : {};
+        if (!body || Array.isArray(body) || typeof body !== "object") throw new TypeError();
+        maxPlayers = Object.hasOwn(body, "maxPlayers") ? body.maxPlayers : DEFAULT_ROOM_CAPACITY;
+      } catch {
+        return jsonResponse({ error: "Formato de sala inválido." }, 400);
+      }
+      if (!Number.isInteger(maxPlayers) || maxPlayers < DEFAULT_ROOM_CAPACITY || maxPlayers > MAX_PLAYERS_PER_ROOM) {
+        return jsonResponse({ error: "La capacidad debe ser de 2, 3 o 4 jugadores." }, 400);
+      }
       for (let attempt = 0; attempt < 5; attempt++) {
         const roomCode = generateRoomCode();
         const id = env.RACE_ROOMS.idFromName(roomCode);
@@ -75,7 +87,7 @@ export default {
           new Request("https://room.internal/internal/init", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ roomCode })
+            body: JSON.stringify({ roomCode, maxPlayers })
           })
         );
         if (initRes.status === 201) {
@@ -83,6 +95,7 @@ export default {
             {
               v: PROTOCOL_VERSION,
               roomCode,
+              maxPlayers,
               wsPath: `/ws/${roomCode}`
             },
             201

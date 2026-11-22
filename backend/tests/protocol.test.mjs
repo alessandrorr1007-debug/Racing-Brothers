@@ -90,7 +90,8 @@ class MockSql {
         room_code: params[0],
         phase: params[1],
         created_at: params[2],
-        closed: params[3]
+        closed: params[3],
+        max_players: params[4]
       };
     }
     if (query.includes("INSERT INTO race_results")) {
@@ -139,8 +140,11 @@ function createTestEnv(overrides = {}) {
   return { env, instances };
 }
 
-async function createRoomViaHttp(env) {
-  const res = await worker.fetch(new Request("https://test.workers.dev/api/rooms", { method: "POST" }), env);
+async function createRoomViaHttp(env, maxPlayers) {
+  const res = await worker.fetch(new Request("https://test.workers.dev/api/rooms", {
+    method: "POST",
+    body: maxPlayers === undefined ? undefined : JSON.stringify({ maxPlayers })
+  }), env);
   assert.equal(res.status, 201);
   return await res.json();
 }
@@ -369,6 +373,46 @@ test("3. Two independent clients join, sync car/character, reject 3rd player, re
   c1.close();
   c2.close();
 });
+
+for (const maxPlayers of [3, 4]) {
+  test(`Room of ${maxPlayers} fills unique slots and broadcasts the race to every client`, async () => {
+    const { env, instances } = createTestEnv();
+    const response = await createRoomViaHttp(env, maxPlayers);
+    const { roomCode } = response;
+    const room = instances.get(roomCode);
+    const reloadedRoom = new RaceRoomDO(room.ctx, env);
+    assert.equal(reloadedRoom.maxPlayers, maxPlayers);
+    assert.equal(response.maxPlayers, maxPlayers);
+    const status = await worker.fetch(new Request(`https://test.workers.dev/api/rooms/${roomCode}`), env);
+    assert.equal((await status.json()).maxPlayers, maxPlayers);
+    const host = await connectClient(env, roomCode);
+    sendMsg(host, "join_room", { roomCode });
+    assert.equal(lastMsgOfType(host, "room_created")?.maxPlayers, maxPlayers);
+    sendMsg(host, "start_race");
+    assert.equal(lastMsgOfType(host, "error")?.code, "NEED_ALL_PLAYERS");
+
+    const clients = [host];
+    for (let slot = 1; slot < maxPlayers; slot++) {
+      const guest = await connectClient(env, roomCode);
+      clients.push(guest);
+      sendMsg(guest, "join_room", { roomCode });
+      assert.equal(lastMsgOfType(guest, "room_joined")?.slot, slot);
+    }
+    const overflow = await connectClient(env, roomCode);
+    sendMsg(overflow, "join_room", { roomCode });
+    assert.equal(lastMsgOfType(overflow, "error")?.code, "ROOM_FULL");
+    for (const client of clients) sendMsg(client, "set_ready", { ready: true });
+    sendMsg(host, "start_race");
+    await wait(80);
+    for (const client of clients) assert.ok(lastMsgOfType(client, "race_started"));
+    sendMsg(clients.at(-1), "player_state", { seq: 1, x: 2, z: 25, heading: 0, speed: 30, steer: 0 });
+    for (const client of clients.slice(0, -1)) {
+      assert.equal(lastMsgOfType(client, "state_snapshot")?.slot, maxPlayers - 1);
+    }
+    sendMsg(host, "leave_room");
+    assert.equal(clients.at(-1).closedCode, 4003);
+  });
+}
 
 test("4. Server-authoritative checkpoints, anti-cheat win rejection, 3-lap winner, and dual rematch", async () => {
   const { env } = createTestEnv();

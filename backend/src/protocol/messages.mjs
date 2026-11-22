@@ -1,5 +1,6 @@
 export const PROTOCOL_VERSION = 1;
-export const MAX_PLAYERS_PER_ROOM = 2;
+export const DEFAULT_ROOM_CAPACITY = 2;
+export const MAX_PLAYERS_PER_ROOM = 4;
 export const TOTAL_LAPS = 3;
 export const MAX_MESSAGE_BYTES = 2048;
 export const MAX_MESSAGES_PER_SEC = 35;

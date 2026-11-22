@@ -1,4 +1,5 @@
 import {
+  DEFAULT_ROOM_CAPACITY,
   MAX_PLAYERS_PER_ROOM,
   TOTAL_LAPS,
   TRACK_CHECKPOINTS,
@@ -14,15 +15,15 @@ import {
 } from "../validation/validator.mjs";
 
 /**
- * RaceRoomDO — SQLite-backed Cloudflare Durable Object managing one private 1 vs 1 race room.
+ * SQLite-backed Durable Object managing one private race room.
  * Compatible with the Cloudflare Workers Free plan (new_sqlite_classes).
  *
  * Security & Authoritative Rules:
  * - No accounts or PII; ephemeral server-generated sessionToken per participant.
- * - Strictly capped at 2 participants (slot 0 = Host, slot 1 = Guest).
- * - Host-exclusive start_race, gated on 2 connected + READY players.
+ * - Rooms have 2–4 slots. Slot 0 belongs to the host.
+ * - Only the host can start, when all slots are connected and ready.
  * - Server-authoritative checkpoint sequencing, 3-lap verification, and winner determination.
- * - Dual-confirmed rematch resets race state cleanly.
+ * - A unanimous rematch resets race state.
  * - Automatic alarm cleanup for abandoned/idle rooms.
  */
 export class RaceRoomDO {
@@ -32,6 +33,7 @@ export class RaceRoomDO {
     this.sql = ctx.storage.sql;
 
     this.roomCode = null;
+    this.maxPlayers = DEFAULT_ROOM_CAPACITY;
     this.created = false;
     this.closed = false;
     this.phase = "IDLE"; // IDLE | LOBBY | COUNTDOWN | RACING | FINISHED
@@ -56,9 +58,14 @@ export class RaceRoomDO {
         room_code TEXT NOT NULL,
         phase TEXT NOT NULL,
         created_at INTEGER NOT NULL,
-        closed INTEGER NOT NULL DEFAULT 0
+        closed INTEGER NOT NULL DEFAULT 0,
+        max_players INTEGER NOT NULL DEFAULT 2 CHECK (max_players BETWEEN 2 AND 4)
       )
     `);
+    const columns = this.sql.exec("PRAGMA table_info(room_meta)").toArray();
+    if (!columns.some((column) => column.name === "max_players")) {
+      this.sql.exec("ALTER TABLE room_meta ADD COLUMN max_players INTEGER NOT NULL DEFAULT 2 CHECK (max_players BETWEEN 2 AND 4)");
+    }
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS race_results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,9 +79,10 @@ export class RaceRoomDO {
 
   loadRoomMeta() {
     if (!this.sql) return;
-    const rows = this.sql.exec("SELECT room_code, phase, closed FROM room_meta WHERE id = 1").toArray();
+    const rows = this.sql.exec("SELECT room_code, phase, closed, max_players FROM room_meta WHERE id = 1").toArray();
     if (rows.length > 0) {
       this.roomCode = rows[0].room_code;
+      this.maxPlayers = rows[0].max_players ?? DEFAULT_ROOM_CAPACITY;
       this.phase = rows[0].phase;
       this.created = true;
       this.closed = rows[0].closed === 1;
@@ -84,13 +92,15 @@ export class RaceRoomDO {
   persistRoomMeta() {
     if (!this.sql || !this.roomCode) return;
     this.sql.exec(
-      `INSERT INTO room_meta (id, room_code, phase, created_at, closed)
-       VALUES (1, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET phase = excluded.phase, closed = excluded.closed`,
+      `INSERT INTO room_meta (id, room_code, phase, created_at, closed, max_players)
+       VALUES (1, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET phase = excluded.phase, closed = excluded.closed,
+         max_players = excluded.max_players, room_code = excluded.room_code`,
       this.roomCode,
       this.phase,
       Date.now(),
-      this.closed ? 1 : 0
+      this.closed ? 1 : 0,
+      this.maxPlayers
     );
   }
 
@@ -144,13 +154,18 @@ export class RaceRoomDO {
     // Internal initialization called by POST /api/rooms
     if (request.method === "POST" && url.pathname === "/internal/init") {
       const body = await request.json().catch(() => ({}));
-      if (!isValidRoomCode(body.roomCode)) {
+      if (!isValidRoomCode(body?.roomCode)) {
         return Response.json({ error: "Código de sala inválido." }, { status: 400 });
       }
       if (this.created && !this.closed) {
         return Response.json({ error: "La sala ya existe." }, { status: 409 });
       }
+      const maxPlayers = body.maxPlayers ?? DEFAULT_ROOM_CAPACITY;
+      if (!Number.isInteger(maxPlayers) || maxPlayers < DEFAULT_ROOM_CAPACITY || maxPlayers > MAX_PLAYERS_PER_ROOM) {
+        return Response.json({ error: "Capacidad de sala inválida." }, { status: 400 });
+      }
       this.roomCode = body.roomCode;
+      this.maxPlayers = maxPlayers;
       this.created = true;
       this.closed = false;
       this.phase = "LOBBY";
@@ -174,7 +189,7 @@ export class RaceRoomDO {
         roomCode: this.roomCode,
         phase: this.phase,
         playerCount: this.players.size,
-        maxPlayers: MAX_PLAYERS_PER_ROOM
+        maxPlayers: this.maxPlayers
       });
     }
 
@@ -333,10 +348,10 @@ export class RaceRoomDO {
       });
       return;
     }
-    if (this.players.size >= MAX_PLAYERS_PER_ROOM) {
+    if (this.players.size >= this.maxPlayers) {
       this.sendTo(ws, "error", {
         code: "ROOM_FULL",
-        message: "La sala está llena (máximo 2 jugadores)."
+        message: `La sala está llena (máximo ${this.maxPlayers} jugadores).`
       });
       ws.close(4001, "ROOM_FULL");
       return;
@@ -351,7 +366,8 @@ export class RaceRoomDO {
     }
 
     const usedSlots = new Set(Array.from(this.players.values()).map((p) => p.slot));
-    const slot = usedSlots.has(0) ? 1 : 0;
+    let slot = 0;
+    while (usedSlots.has(slot)) slot++;
     const isHost = slot === 0;
     const playerId = `p_${crypto.randomUUID().slice(0, 8)}`;
     const sessionToken = crypto.randomUUID();
@@ -389,6 +405,7 @@ export class RaceRoomDO {
       slot,
       isHost,
       phase: this.phase,
+      maxPlayers: this.maxPlayers,
       players: playersList
     });
 
@@ -526,10 +543,10 @@ export class RaceRoomDO {
       return;
     }
     const allPlayers = Array.from(this.players.values());
-    if (allPlayers.length !== MAX_PLAYERS_PER_ROOM) {
+    if (allPlayers.length !== this.maxPlayers) {
       this.sendTo(ws, "error", {
-        code: "NEED_TWO_PLAYERS",
-        message: "Se requieren exactamente dos jugadores conectados para iniciar."
+        code: this.maxPlayers === DEFAULT_ROOM_CAPACITY ? "NEED_TWO_PLAYERS" : "NEED_ALL_PLAYERS",
+        message: `Se requieren ${this.maxPlayers} jugadores conectados para iniciar.`
       });
       return;
     }
@@ -737,8 +754,8 @@ export class RaceRoomDO {
       players: this.serializePlayers()
     });
 
-    // Both players must confirm rematch before restarting cleanly
-    if (allPlayers.length === MAX_PLAYERS_PER_ROOM && allPlayers.every((p) => p.connected && p.rematchRequested)) {
+    // All participants must confirm before a rematch begins.
+    if (allPlayers.length === this.maxPlayers && allPlayers.every((p) => p.connected && p.rematchRequested)) {
       this.beginSynchronizedCountdown();
     }
   }
