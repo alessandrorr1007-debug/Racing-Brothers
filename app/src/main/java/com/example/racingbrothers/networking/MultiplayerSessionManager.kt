@@ -1,5 +1,7 @@
 package com.example.racingbrothers.networking
 
+import com.example.racingbrothers.tracks.CircuitId
+
 import com.example.racingbrothers.characters.CharacterCatalog
 import com.example.racingbrothers.vehicles.VehicleCatalog
 import kotlinx.coroutines.CoroutineScope
@@ -50,7 +52,9 @@ data class MultiplayerUiState(
     val errorMessage: String? = null,
     val roomClosedReason: String? = null,
     val rematchVotes: Int = 0,
-    val roomCapacity: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY
+    val roomCapacity: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY,
+    val circuit: CircuitId = CircuitId.SPEEDWAY,
+    val supportsCircuitSelection: Boolean = false
 ) {
     val localPlayer: PlayerSlotState?
         get() = players.firstOrNull { it.playerId == localPlayerId }
@@ -502,7 +506,9 @@ class MultiplayerSessionManager(
                         roomClosedReason = null,
                         remoteTelemetryByPlayerId = emptyMap(),
                         roomCapacity = json.optInt("maxPlayers", ProtocolConstants.DEFAULT_ROOM_CAPACITY)
-                            .coerceIn(ProtocolConstants.DEFAULT_ROOM_CAPACITY, ProtocolConstants.MAX_PLAYERS_PER_ROOM)
+                            .coerceIn(ProtocolConstants.DEFAULT_ROOM_CAPACITY, ProtocolConstants.MAX_PLAYERS_PER_ROOM),
+                        circuit = CircuitId.fromWire(json.optString("trackId")),
+                        supportsCircuitSelection = json.has("trackId")
                     )
                 }
             }
@@ -532,6 +538,7 @@ class MultiplayerSessionManager(
                 _state.update {
                     it.copy(
                         phase = RoomPhase.COUNTDOWN,
+                        circuit = CircuitId.fromWire(json.optString("trackId", it.circuit.wireId)),
                         countdownValue = value,
                         raceResults = null,
                         authoritativeLaps = 0,
@@ -547,6 +554,7 @@ class MultiplayerSessionManager(
                 _state.update {
                     it.copy(
                         phase = RoomPhase.RACING,
+                        circuit = CircuitId.fromWire(json.optString("trackId", it.circuit.wireId)),
                         countdownValue = 0,
                         raceStartedAtServerMs = startedAt,
                         raceResults = null,
@@ -679,9 +687,11 @@ class MultiplayerSessionManager(
         activeConnection?.send(ProtocolCodec.encodeSetReady(ready))
     }
 
-    fun startRace() {
-        if (!_state.value.canHostStartRace) return
-        activeConnection?.send(ProtocolCodec.encodeStartRace())
+    fun startRace(circuit: CircuitId = CircuitId.SPEEDWAY) {
+        val state = _state.value
+        if (!state.canHostStartRace) return
+        val selection = if (state.supportsCircuitSelection) circuit else CircuitId.SPEEDWAY
+        activeConnection?.send(ProtocolCodec.encodeStartRace(selection.wireId))
     }
 
     fun sendTelemetry(

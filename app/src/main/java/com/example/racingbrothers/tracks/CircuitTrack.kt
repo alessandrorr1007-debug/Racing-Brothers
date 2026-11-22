@@ -52,6 +52,17 @@ enum class PropKind {
     CHEVRON_SIGN
 }
 
+enum class CircuitId(val wireId: String) {
+    SPEEDWAY("speedway"),
+    MOUNTAIN("mountain"),
+    NIGHT_CITY("night_city"),
+    RANDOM("random");
+
+    companion object {
+        fun fromWire(value: String): CircuitId = entries.firstOrNull { it.wireId == value } ?: SPEEDWAY
+    }
+}
+
 /**
  * Circuito Neon Bay — Closed arcade circuit with straights, sweeping turns, an S-chicane,
  * hairpin, curbs, guardrails, 6 ordered checkpoints, and 3-lap race rules.
@@ -59,28 +70,32 @@ enum class PropKind {
  * The checkpoint coordinates & radii here are mirrored verbatim in the Cloudflare Worker
  * backend validation module so client physics and server validation stay 100% in sync.
  */
-object CircuitTrack {
-    const val TRACK_ID = "neon_bay_v1"
-    const val TRACK_NAME = "Circuito Neon Bay"
-    const val TOTAL_LAPS = 3
-    const val ROAD_HALF_WIDTH = 9.5f        // 19m asphalt width for exciting 1v1 overtakes
-    const val BARRIER_HALF_WIDTH = 11.2f    // Guardrail collision boundary
-    const val CHECKPOINT_COUNT = 6
+class CircuitTrack private constructor(val id: CircuitId, private val controlPoints: List<Pair<Float, Float>>) {
+    companion object {
+        const val TOTAL_LAPS = 3
+        const val ROAD_HALF_WIDTH = 9.5f
+        const val BARRIER_HALF_WIDTH = 11.2f
+        const val CHECKPOINT_COUNT = 6
 
-    // Control points forming an engaging closed loop (counter-clockwise / clockwise consistent)
-    private val controlPoints: List<Pair<Float, Float>> = listOf(
-        0f to 0f,          // Start/Finish straight
-        0f to 85f,         // Fast straight into Turn 1
-        28f to 148f,       // Wide sweeping Turn 1
-        98f to 164f,       // North back-stretch entry
-        162f to 132f,      // Fast right sweeper
-        178f to 62f,       // S-Chicane entry
-        132f to 16f,       // S-Chicane apex
-        166f to -46f,      // South-east curve
-        128f to -114f,     // Hairpin entry
-        56f to -118f,      // Hairpin exit
-        10f to -76f        // Final corner onto main straight
-    )
+        private val speedway = CircuitTrack(CircuitId.SPEEDWAY, listOf(
+            0f to 0f, 0f to 85f, 28f to 148f, 98f to 164f, 162f to 132f,
+            178f to 62f, 132f to 16f, 166f to -46f, 128f to -114f, 56f to -118f, 10f to -76f
+        ))
+        private val mountain = CircuitTrack(CircuitId.MOUNTAIN, listOf(
+            0f to 0f, 0f to 68f, 29f to 143f, 92f to 185f, 182f to 161f,
+            220f to 70f, 166f to 17f, 213f to -65f, 162f to -138f, 67f to -162f, 8f to -80f
+        ))
+        private val nightCity = CircuitTrack(CircuitId.NIGHT_CITY, listOf(
+            0f to 0f, 0f to 114f, 36f to 165f, 135f to 165f, 194f to 121f,
+            194f to 57f, 252f to 12f, 251f to -103f, 207f to -142f, 59f to -142f, 9f to -83f
+        ))
+
+        fun forId(id: CircuitId): CircuitTrack = when (id) {
+            CircuitId.SPEEDWAY, CircuitId.RANDOM -> speedway
+            CircuitId.MOUNTAIN -> mountain
+            CircuitId.NIGHT_CITY -> nightCity
+        }
+    }
 
     val samples: List<TrackPoint> by lazy { buildCatmullRomTrack(samplesPerSpan = 12) }
     val totalLength: Float by lazy {

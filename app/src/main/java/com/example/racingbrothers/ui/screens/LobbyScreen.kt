@@ -43,6 +43,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.FilterChip
+import com.example.racingbrothers.tracks.CircuitId
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -83,11 +89,12 @@ fun LobbyScreen(
     multiplayerState: MultiplayerUiState,
     onEditSetup: () -> Unit,
     onToggleReady: () -> Unit,
-    onStartRace: () -> Unit,
+    onStartRace: (CircuitId) -> Unit,
     onLeaveRoom: () -> Unit,
     onLaunchRaceActivity: () -> Unit
 ) {
     val context = LocalContext.current
+    var selectedCircuit by rememberSaveable(multiplayerState.roomCode) { mutableStateOf(CircuitId.SPEEDWAY) }
 
     // Launch the libGDX 3D RaceActivity as soon as the server initiates countdown or race
     LaunchedEffect(multiplayerState.phase) {
@@ -224,6 +231,20 @@ fun LobbyScreen(
                 }
             }
 
+            if (multiplayerState.isHost && multiplayerState.supportsCircuitSelection) {
+                Text(stringResource(R.string.select_circuit), color = IceWhite)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (circuit in CircuitId.entries) {
+                        FilterChip(
+                            selected = selectedCircuit == circuit,
+                            onClick = { selectedCircuit = circuit },
+                            label = { Text(stringResource(circuit.titleResource())) },
+                            modifier = Modifier.testTag("lobby_track_${circuit.wireId}")
+                        )
+                    }
+                }
+            }
+
             // Bottom Action Bar: Edit Setup + LISTO + INICIAR CARRERA (Host exclusive)
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -295,7 +316,7 @@ fun LobbyScreen(
                     // Exclusive Host Start Race Button
                     if (multiplayerState.isHost) {
                         Button(
-                            onClick = onStartRace,
+                            onClick = { onStartRace(selectedCircuit) },
                             enabled = multiplayerState.canHostStartRace,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = ElectricBlue,
@@ -469,4 +490,10 @@ private fun LobbyPlayerCard(
             }
         }
     }
+}
+internal fun CircuitId.titleResource(): Int = when (this) {
+    CircuitId.SPEEDWAY -> R.string.track_speedway
+    CircuitId.MOUNTAIN -> R.string.track_mountain
+    CircuitId.NIGHT_CITY -> R.string.track_night_city
+    CircuitId.RANDOM -> R.string.track_random
 }

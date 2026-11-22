@@ -27,6 +27,7 @@ import com.example.racingbrothers.networking.MultiplayerUiState
 import com.example.racingbrothers.networking.ProtocolConstants
 import com.example.racingbrothers.storage.GraphicsQuality
 import com.example.racingbrothers.tracks.CircuitTrack
+import com.example.racingbrothers.tracks.CircuitId
 import com.example.racingbrothers.vehicles.BalancedV1Stats
 import com.example.racingbrothers.vehicles.VehicleCatalog
 import kotlin.math.abs
@@ -73,7 +74,8 @@ class RacingBrothersGdxGame(
     private var localCarRig: GdxVehicleRig? = null
     private val rivals = mutableMapOf<String, RivalCar>()
 
-    private val physics = ArcadeCarPhysics()
+    private var track = CircuitTrack.forId(CircuitId.SPEEDWAY)
+    private var physics = ArcadeCarPhysics(track)
     private val cameraRig = CameraRig(initialCameraMode)
 
     private var localState: CarPhysicsState = physics.createStartingState(0)
@@ -138,7 +140,6 @@ class RacingBrothersGdxGame(
             }
         }
 
-        trackWorld = GdxMeshFactory.buildTrackWorld(graphicsQuality)
         resetGridPositions()
     }
 
@@ -147,6 +148,13 @@ class RacingBrothersGdxGame(
         rivals.values.forEach { it.rig.dispose() }
         rivals.clear()
         val session = sessionManager.state.value
+        val resolvedTrack = CircuitTrack.forId(session.circuit)
+        if (trackWorld == null || track !== resolvedTrack) {
+            trackWorld?.dispose()
+            track = resolvedTrack
+            physics = ArcadeCarPhysics(track)
+            trackWorld = GdxMeshFactory.buildTrackWorld(graphicsQuality, track)
+        }
         val local = session.localPlayer
         localCarRig = GdxMeshFactory.buildVehicleRig(
             VehicleCatalog.getVehicle(local?.vehicleId ?: "vortex_rs"),
@@ -155,7 +163,7 @@ class RacingBrothersGdxGame(
         )
         for (player in session.players) {
             if (player.playerId == session.localPlayerId) continue
-            val (x, z, heading) = CircuitTrack.getStartSlot(player.slot)
+            val (x, z, heading) = track.getStartSlot(player.slot)
             val rig = GdxMeshFactory.buildVehicleRig(
                 VehicleCatalog.getVehicle(player.vehicleId),
                 VehicleCatalog.getPaintColor(player.colorId),
@@ -282,7 +290,11 @@ class RacingBrothersGdxGame(
         )
         // 6. Render 3D scene (Deep midnight night-circuit sky)
         Gdx.gl.glViewport(0, 0, Gdx.graphics.width, Gdx.graphics.height)
-        Gdx.gl.glClearColor(0.024f, 0.039f, 0.075f, 1f)
+        when (track.id) {
+            CircuitId.MOUNTAIN -> Gdx.gl.glClearColor(0.20f, 0.32f, 0.42f, 1f)
+            CircuitId.NIGHT_CITY -> Gdx.gl.glClearColor(0.042f, 0.021f, 0.095f, 1f)
+            else -> Gdx.gl.glClearColor(0.024f, 0.039f, 0.075f, 1f)
+        }
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
 
         modelBatch.begin(camera)
@@ -322,7 +334,7 @@ class RacingBrothersGdxGame(
         hudAccumulatorSec += dt
         if (hudAccumulatorSec >= 0.066f) {
             hudAccumulatorSec = 0f
-            val localProgress = CircuitTrack.computeRaceProgress(
+            val localProgress = track.computeRaceProgress(
                 completedLaps = localState.completedLaps,
                 nextCheckpoint = localState.nextCheckpoint,
                 x = localState.x,
@@ -330,7 +342,7 @@ class RacingBrothersGdxGame(
             )
             val rank = 1 + rivals.count { (playerId, rival) ->
                 val telemetry = session.remoteTelemetryByPlayerId[playerId] ?: return@count false
-                val progress = CircuitTrack.computeRaceProgress(
+                val progress = track.computeRaceProgress(
                     telemetry.completedLaps, telemetry.nextCheckpoint, rival.x, rival.z
                 )
                 progress > localProgress

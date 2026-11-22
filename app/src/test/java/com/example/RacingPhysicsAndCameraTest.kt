@@ -5,6 +5,7 @@ import com.example.racingbrothers.camera.CameraRig
 import com.example.racingbrothers.characters.CharacterCatalog
 import com.example.racingbrothers.controls.ArcadeCarPhysics
 import com.example.racingbrothers.controls.RacingInputState
+import com.example.racingbrothers.tracks.CircuitId
 import com.example.racingbrothers.tracks.CircuitTrack
 import com.example.racingbrothers.vehicles.BalancedV1Stats
 import com.example.racingbrothers.vehicles.VehicleCatalog
@@ -16,6 +17,8 @@ import org.junit.Test
 import kotlin.math.abs
 
 class RacingPhysicsAndCameraTest {
+    private val speedway = CircuitTrack.forId(CircuitId.SPEEDWAY)
+
 
     @Test
     fun `catalog provides 4 distinct vehicles and 3 distinct cartoon drivers`() {
@@ -102,7 +105,7 @@ class RacingPhysicsAndCameraTest {
     @Test
     fun `barrier collision keeps car within circuit bounds while allowing arcade wall slide`() {
         val physics = ArcadeCarPhysics()
-        val start = CircuitTrack.samples.first()
+        val start = speedway.samples.first()
         var state = physics.createStartingState(0).copy(
             x = start.x + start.rightX * (CircuitTrack.BARRIER_HALF_WIDTH + 6f),
             z = start.z + start.rightZ * (CircuitTrack.BARRIER_HALF_WIDTH + 6f),
@@ -111,8 +114,22 @@ class RacingPhysicsAndCameraTest {
         state = physics.step(state, RacingInputState(throttle = 1f), 1f / 60f, canDrive = true).first
         assertTrue("Wall collision flag should trigger", state.collidedWithWall)
         assertTrue("Car should retain arcade sliding speed instead of dead-stopping", state.speedMps > 20f)
-        val q = CircuitTrack.queryClosestPoint(state.x, state.z)
+        val q = speedway.queryClosestPoint(state.x, state.z)
         assertTrue("Car should be clamped inside guardrail", abs(q.signedLateralOffset) <= CircuitTrack.BARRIER_HALF_WIDTH)
+    }
+
+    @Test
+    fun `each circuit has a distinct route and four safe starting positions`() {
+        val circuits = CircuitId.entries.filter { it != CircuitId.RANDOM }.map(CircuitTrack::forId)
+        assertEquals(3, circuits.map { it.samples.map { point -> point.x to point.z } }.distinct().size)
+        for (circuit in circuits) {
+            assertEquals(CircuitTrack.CHECKPOINT_COUNT, circuit.checkpoints.size)
+            val slots = (0..3).map(circuit::getStartSlot)
+            assertEquals(4, slots.distinct().size)
+            for ((x, z) in slots) {
+                assertTrue(abs(circuit.queryClosestPoint(x, z).signedLateralOffset) < CircuitTrack.ROAD_HALF_WIDTH)
+            }
+        }
     }
 
     @Test
@@ -122,13 +139,13 @@ class RacingPhysicsAndCameraTest {
 
         for (lap in 1..CircuitTrack.TOTAL_LAPS) {
             for (cpIdx in 1 until CircuitTrack.CHECKPOINT_COUNT) {
-                val cp = CircuitTrack.checkpoints[cpIdx]
+                val cp = speedway.checkpoints[cpIdx]
                 val res = physics.step(state.copy(x = cp.x, z = cp.z, speedMps = 0f), RacingInputState(), 0.016f, canDrive = true)
                 state = res.first
                 assertEquals(cpIdx, res.second?.checkpointIndex)
                 assertFalse(res.second?.lapCompleted == true)
             }
-            val startFinish = CircuitTrack.checkpoints[0]
+            val startFinish = speedway.checkpoints[0]
             val finishRes = physics.step(
                 state.copy(x = startFinish.x, z = startFinish.z, speedMps = 0f),
                 RacingInputState(),

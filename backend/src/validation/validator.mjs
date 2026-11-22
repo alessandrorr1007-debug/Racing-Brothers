@@ -89,14 +89,14 @@ export function validateTelemetryMessage(msg) {
   return { ok: true };
 }
 
-export function validateCheckpointProximity(checkpointIndex, x, z) {
-  if (!Number.isInteger(checkpointIndex) || checkpointIndex < 0 || checkpointIndex >= TRACK_CHECKPOINTS.length) {
+export function validateCheckpointProximity(checkpointIndex, x, z, checkpoints = TRACK_CHECKPOINTS) {
+  if (!Number.isInteger(checkpointIndex) || checkpointIndex < 0 || checkpointIndex >= checkpoints.length) {
     return false;
   }
   if (typeof x !== "number" || typeof z !== "number" || !Number.isFinite(x) || !Number.isFinite(z)) {
     return false;
   }
-  const cp = TRACK_CHECKPOINTS[checkpointIndex];
+  const cp = checkpoints[checkpointIndex];
   const dx = x - cp.x;
   const dz = z - cp.z;
   return dx * dx + dz * dz <= cp.radius * cp.radius;

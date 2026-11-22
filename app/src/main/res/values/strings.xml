@@ -84,6 +84,11 @@
     <string name="btn_rematch">REVANCHA</string>
     <string name="rematch_waiting">REVANCHA (%1$d/%2$d)</string>
     <string name="room_capacity_title">Capacidad de la sala</string>
+    <string name="select_circuit">Seleccionar circuito</string>
+    <string name="track_speedway">Speedway</string>
+    <string name="track_mountain">Montaña</string>
+    <string name="track_night_city">Ciudad Nocturna</string>
+    <string name="track_random">Aleatorio</string>
     <string name="room_capacity_option">%1$d jugadores</string>
     <string name="lobby_guest_label">JUGADOR %1$d · INVITADO</string>
     <string name="lobby_need_capacity_ready">Esperando a que estén listos los %1$d jugadores.</string>

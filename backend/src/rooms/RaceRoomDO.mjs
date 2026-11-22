@@ -1,8 +1,10 @@
 import {
   DEFAULT_ROOM_CAPACITY,
+  DEFAULT_TRACK_ID,
   MAX_PLAYERS_PER_ROOM,
   TOTAL_LAPS,
-  TRACK_CHECKPOINTS,
+  TRACK_CHECKPOINTS_BY_ID,
+  TRACK_IDS,
   encodeEnvelope
 } from "../protocol/messages.mjs";
 import {
@@ -34,6 +36,7 @@ export class RaceRoomDO {
 
     this.roomCode = null;
     this.maxPlayers = DEFAULT_ROOM_CAPACITY;
+    this.trackId = DEFAULT_TRACK_ID;
     this.created = false;
     this.closed = false;
     this.phase = "IDLE"; // IDLE | LOBBY | COUNTDOWN | RACING | FINISHED
@@ -166,6 +169,7 @@ export class RaceRoomDO {
       }
       this.roomCode = body.roomCode;
       this.maxPlayers = maxPlayers;
+      this.trackId = DEFAULT_TRACK_ID;
       this.created = true;
       this.closed = false;
       this.phase = "LOBBY";
@@ -291,7 +295,7 @@ export class RaceRoomDO {
         this.onSetReady(ws, meta, msg);
         break;
       case "start_race":
-        this.onStartRace(ws, meta);
+        this.onStartRace(ws, meta, msg);
         break;
       case "player_state":
         this.onPlayerState(ws, meta, msg);
@@ -406,6 +410,7 @@ export class RaceRoomDO {
       isHost,
       phase: this.phase,
       maxPlayers: this.maxPlayers,
+      trackId: this.trackId,
       players: playersList
     });
 
@@ -468,6 +473,7 @@ export class RaceRoomDO {
       isHost: existing.isHost,
       phase: this.phase,
       maxPlayers: this.maxPlayers,
+      trackId: this.trackId,
       players: playersList
     });
 
@@ -526,7 +532,7 @@ export class RaceRoomDO {
     });
   }
 
-  onStartRace(ws, meta) {
+  onStartRace(ws, meta, msg) {
     const player = this.requirePlayer(ws, meta);
     if (!player) return;
     if (!player.isHost) {
@@ -559,6 +565,14 @@ export class RaceRoomDO {
       return;
     }
 
+    const requestedTrack = msg.trackId ?? DEFAULT_TRACK_ID;
+    if (requestedTrack !== "random" && !TRACK_CHECKPOINTS_BY_ID.has(requestedTrack)) {
+      this.sendTo(ws, "error", { code: "INVALID_TRACK", message: "Circuito inválido." });
+      return;
+    }
+    this.trackId = requestedTrack === "random"
+      ? TRACK_IDS[Math.floor(Math.random() * TRACK_IDS.length)]
+      : requestedTrack;
     this.beginSynchronizedCountdown();
   }
 
@@ -579,12 +593,12 @@ export class RaceRoomDO {
     this.persistRoomMeta();
 
     const stepMs = this.getCountdownStepMs();
-    this.broadcast("countdown", { value: 3, serverTimeMs: Date.now() });
+    this.broadcast("countdown", { value: 3, trackId: this.trackId, serverTimeMs: Date.now() });
 
     this.countdownTimers.push(
       setTimeout(() => {
         if (this.phase === "COUNTDOWN") {
-          this.broadcast("countdown", { value: 2, serverTimeMs: Date.now() });
+          this.broadcast("countdown", { value: 2, trackId: this.trackId, serverTimeMs: Date.now() });
         }
       }, stepMs)
     );
@@ -592,7 +606,7 @@ export class RaceRoomDO {
     this.countdownTimers.push(
       setTimeout(() => {
         if (this.phase === "COUNTDOWN") {
-          this.broadcast("countdown", { value: 1, serverTimeMs: Date.now() });
+          this.broadcast("countdown", { value: 1, trackId: this.trackId, serverTimeMs: Date.now() });
         }
       }, stepMs * 2)
     );
@@ -606,7 +620,7 @@ export class RaceRoomDO {
             p.lastLapTimestampMs = this.raceStartedAtMs;
           }
           this.persistRoomMeta();
-          this.broadcast("race_started", { startedAtMs: this.raceStartedAtMs });
+          this.broadcast("race_started", { startedAtMs: this.raceStartedAtMs, trackId: this.trackId });
         }
       }, stepMs * 3)
     );
@@ -668,7 +682,8 @@ export class RaceRoomDO {
       return;
     }
 
-    if (!validateCheckpointProximity(cpIndex, msg.x, msg.z)) {
+    const checkpoints = TRACK_CHECKPOINTS_BY_ID.get(this.trackId);
+    if (!validateCheckpointProximity(cpIndex, msg.x, msg.z, checkpoints)) {
       this.sendTo(ws, "error", {
         code: "CHECKPOINT_OUT_OF_RANGE",
         message: "Posición fuera del área del checkpoint."
@@ -696,7 +711,7 @@ export class RaceRoomDO {
         player.totalTimeMs = Math.max(1, now - this.raceStartedAtMs);
       }
     } else {
-      player.nextCheckpoint = (cpIndex + 1) % TRACK_CHECKPOINTS.length;
+      player.nextCheckpoint = (cpIndex + 1) % checkpoints.length;
     }
 
     this.broadcast("checkpoint_ack", {

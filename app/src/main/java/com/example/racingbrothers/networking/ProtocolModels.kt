@@ -180,9 +180,10 @@ object ProtocolCodec {
         put("ready", ready)
     }.toString()
 
-    fun encodeStartRace(): String = JSONObject().apply {
+    fun encodeStartRace(trackId: String = "speedway"): String = JSONObject().apply {
         put("v", ProtocolConstants.PROTOCOL_VERSION)
         put("type", "start_race")
+        put("trackId", trackId)
     }.toString()
 
     fun encodePlayerState(

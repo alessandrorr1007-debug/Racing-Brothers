@@ -1,5 +1,6 @@
 package com.example.racingbrothers.controls
 
+import com.example.racingbrothers.tracks.CircuitId
 import com.example.racingbrothers.tracks.CircuitTrack
 import com.example.racingbrothers.vehicles.BalancedV1Stats
 import kotlin.math.abs
@@ -48,10 +49,10 @@ data class CheckpointEvent(
  * Deterministic arcade vehicle physics engine.
  * Designed to be easy to pick up, responsive, fun, and 100% testable on JVM without OpenGL.
  */
-class ArcadeCarPhysics {
+class ArcadeCarPhysics(private val track: CircuitTrack = CircuitTrack.forId(CircuitId.SPEEDWAY)) {
 
     fun createStartingState(slotIndex: Int): CarPhysicsState {
-        val (x, z, heading) = CircuitTrack.getStartSlot(slotIndex)
+        val (x, z, heading) = track.getStartSlot(slotIndex)
         return CarPhysicsState(
             x = x,
             z = z,
@@ -155,7 +156,7 @@ class ArcadeCarPhysics {
 
         // 4. Track barrier collision & sliding response
         var hitWall = false
-        val query = CircuitTrack.queryClosestPoint(nextX, nextZ)
+        val query = track.queryClosestPoint(nextX, nextZ)
         val maxOffset = CircuitTrack.BARRIER_HALF_WIDTH - 1.25f
         if (abs(query.signedLateralOffset) > maxOffset) {
             hitWall = true
@@ -186,7 +187,7 @@ class ArcadeCarPhysics {
         var finished = state.finished
         var checkpointEvent: CheckpointEvent? = null
 
-        if (canDrive && !finished && CircuitTrack.isInsideCheckpoint(nextCheckpoint, nextX, nextZ)) {
+        if (canDrive && !finished && track.isInsideCheckpoint(nextCheckpoint, nextX, nextZ)) {
             val passedIndex = nextCheckpoint
             if (passedIndex == 0) {
                 // Crossed start/finish line after visiting checkpoints 1..5 in order!

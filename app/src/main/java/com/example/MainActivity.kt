@@ -224,9 +224,9 @@ fun RacingBrothersApp(
                     viewModel.playClick()
                     viewModel.toggleReady()
                 },
-                onStartRace = {
+                onStartRace = { circuit ->
                     viewModel.playClick()
-                    viewModel.startRace()
+                    viewModel.startRace(circuit)
                 },
                 onLeaveRoom = {
                     viewModel.playClick()

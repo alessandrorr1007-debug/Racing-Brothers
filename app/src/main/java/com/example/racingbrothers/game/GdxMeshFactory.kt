@@ -14,6 +14,7 @@ import com.badlogic.gdx.math.Vector3
 import com.example.racingbrothers.characters.CharacterSpec
 import com.example.racingbrothers.storage.GraphicsQuality
 import com.example.racingbrothers.tracks.CircuitTrack
+import com.example.racingbrothers.tracks.CircuitId
 import com.example.racingbrothers.tracks.PropKind
 import com.example.racingbrothers.vehicles.MeshBoxPart
 import com.example.racingbrothers.vehicles.PartColorRole
@@ -205,15 +206,20 @@ object GdxMeshFactory {
         )
     }
 
-    fun buildTrackWorld(quality: GraphicsQuality): GdxTrackWorld {
+    fun buildTrackWorld(quality: GraphicsQuality, track: CircuitTrack): GdxTrackWorld {
         val builder = ModelBuilder()
         val disposables = mutableListOf<Model>()
         val staticInstances = mutableListOf<ModelInstance>()
 
         // 1. Ground terrain apron
+        val terrainColor = when (track.id) {
+            CircuitId.MOUNTAIN -> Color(0.075f, 0.15f, 0.12f, 1f)
+            CircuitId.NIGHT_CITY -> Color(0.038f, 0.024f, 0.095f, 1f)
+            else -> Color(0.035f, 0.055f, 0.095f, 1f)
+        }
         val groundModel = builder.createBox(
             700f, 0.4f, 700f,
-            Material(ColorAttribute.createDiffuse(Color(0.035f, 0.055f, 0.095f, 1f))),
+            Material(ColorAttribute.createDiffuse(terrainColor)),
             ATTRS
         )
         disposables.add(groundModel)
@@ -222,7 +228,7 @@ object GdxMeshFactory {
         staticInstances.add(groundInst)
 
         // 2. Closed asphalt loop + curbs + guardrails batched into shared models for high FPS
-        val samples = CircuitTrack.samples
+        val samples = track.samples
         val n = samples.size
         val roadHalfW = CircuitTrack.ROAD_HALF_WIDTH
         val barrierHalfW = CircuitTrack.BARRIER_HALF_WIDTH
@@ -391,7 +397,7 @@ object GdxMeshFactory {
         val cpModel = builder.end()
         disposables.add(cpModel)
 
-        for (cp in CircuitTrack.checkpoints) {
+        for (cp in track.checkpoints) {
             if (cp.index == 0) continue
             val inst = ModelInstance(cpModel)
             val cpYaw = (atan2(cp.dirX, cp.dirZ) * 180.0 / PI).toFloat()
@@ -405,7 +411,9 @@ object GdxMeshFactory {
         val signModel = buildChevronSignModel(builder).also { disposables.add(it) }
         val treeModel = buildTreeModel(builder).also { disposables.add(it) }
 
-        for (prop in CircuitTrack.sceneryProps) {
+        for (prop in track.sceneryProps) {
+            if (track.id != CircuitId.SPEEDWAY && prop.kind == PropKind.GRANDSTAND) continue
+            if (track.id == CircuitId.NIGHT_CITY && prop.kind == PropKind.TREE_CLUSTER) continue
             if (quality == GraphicsQuality.LOW && prop.kind == PropKind.TREE_CLUSTER) continue
             val model = when (prop.kind) {
                 PropKind.FLOODLIGHT_TOWER -> towerModel
@@ -418,21 +426,60 @@ object GdxMeshFactory {
             staticInstances.add(inst)
         }
 
-        val mountainModel = builder.createCone(
+        val backdrop = when (track.id) {
+            CircuitId.NIGHT_CITY -> buildCityTower(builder)
+            else -> builder.createCone(
             1f, 1f, 1f, 6,
             Material(ColorAttribute.createDiffuse(Color(0.11f, 0.17f, 0.23f, 1f))),
             ATTRS
-        ).also { disposables.add(it) }
-        for (i in samples.indices step 12) {
+            )
+        }.also { disposables.add(it) }
+        val backdropSpacing = if (track.id == CircuitId.NIGHT_CITY) 5 else 12
+        for (i in samples.indices step backdropSpacing) {
             val point = samples[i]
-            val offset = barrierHalfW + 65f
-            val height = 16f + (i * 7 % 17)
-            val mountain = ModelInstance(mountainModel)
-            mountain.transform
-                .setToTranslation(point.x + point.rightX * offset, height / 2f, point.z + point.rightZ * offset)
+            val city = track.id == CircuitId.NIGHT_CITY
+            val offset = barrierHalfW + if (city) 25f else 65f
+            val x = point.x + point.rightX * offset
+            val z = point.z + point.rightZ * offset
+            val width = if (city) 12f else 42f
+            if (kotlin.math.abs(track.queryClosestPoint(x, z).signedLateralOffset) < barrierHalfW + width * 0.6f) continue
+            val height = 16f + (i * 7 % 17) + if (city) 12f else 0f
+            val instance = ModelInstance(backdrop)
+            instance.transform
+                .setToTranslation(x, height / 2f, z)
                 .rotate(0f, 1f, 0f, i * 19f)
-                .scale(42f, height, 36f)
-            staticInstances.add(mountain)
+                .scale(width, height, if (city) 12f else 36f)
+            staticInstances.add(instance)
+        }
+        if (track.id == CircuitId.MOUNTAIN || track.id == CircuitId.NIGHT_CITY) {
+            val isTunnel = track.id == CircuitId.NIGHT_CITY
+            val structure = buildTrackStructure(builder, barrierHalfW, isTunnel)
+                .also { disposables.add(it) }
+            for (i in if (isTunnel) 34..40 else 5..9) {
+                val point = samples[i]
+                val yaw = (atan2(point.dirX, point.dirZ) * 180.0 / PI).toFloat()
+                val instance = ModelInstance(structure)
+                instance.transform.setToTranslation(point.x, 0f, point.z).rotate(0f, 1f, 0f, yaw)
+                staticInstances.add(instance)
+            }
+        }
+        if (track.id == CircuitId.MOUNTAIN) {
+            val cliff = samples[22]
+            val x = cliff.x - cliff.rightX * 28f
+            val z = cliff.z - cliff.rightZ * 28f
+            val rock = builder.createBox(
+                11f, 17f, 6f, Material(ColorAttribute.createDiffuse(Color(0.23f, 0.31f, 0.34f, 1f))), ATTRS
+            ).also { disposables.add(it) }
+            val cascade = builder.createBox(
+                4f, 15f, 0.3f, Material(ColorAttribute.createEmissive(Color(0.09f, 0.52f, 0.68f, 1f))), ATTRS
+            ).also { disposables.add(it) }
+            val yaw = (atan2(-cliff.rightX, -cliff.rightZ) * 180.0 / PI).toFloat()
+            staticInstances.add(ModelInstance(rock).apply {
+                transform.setToTranslation(x, 8.5f, z).rotate(0f, 1f, 0f, yaw)
+            })
+            staticInstances.add(ModelInstance(cascade).apply {
+                transform.setToTranslation(x, 7.5f, z).rotate(0f, 1f, 0f, yaw).translate(0f, 0f, -3.15f)
+            })
         }
 
         // Bake fixed track geometry into shared draw calls. Checkpoint arches stay
@@ -448,6 +495,35 @@ object GdxMeshFactory {
             checkpointArches = checkpointArches,
             disposables = listOf(cpModel)
         )
+    }
+
+    private fun buildCityTower(builder: ModelBuilder): Model {
+        builder.begin()
+        val shell = Material(ColorAttribute.createDiffuse(Color(0.055f, 0.075f, 0.16f, 1f)))
+        val windows = Material(ColorAttribute.createEmissive(Color(0.28f, 0.27f, 0.94f, 1f)))
+        builder.node()
+        builder.part("shell", GL20.GL_TRIANGLES, ATTRS, shell).box(1f, 1f, 1f)
+        val strips = builder.part("windows", GL20.GL_TRIANGLES, ATTRS, windows)
+        for (floor in 0..4) {
+            val y = -0.33f + floor * 0.18f
+            strips.box(0f, y, 0f, 1.02f, 0.015f, 1.02f)
+        }
+        return builder.end()
+    }
+
+    private fun buildTrackStructure(builder: ModelBuilder, width: Float, tunnel: Boolean): Model {
+        builder.begin()
+        val shell = Material(ColorAttribute.createDiffuse(Color(0.21f, 0.28f, 0.35f, 1f)))
+        val lamps = Material(ColorAttribute.createEmissive(Color(0.10f, 0.62f, 0.94f, 1f)))
+        builder.node()
+        val frame = builder.part("frame", GL20.GL_TRIANGLES, ATTRS, shell)
+        for (side in listOf(-1f, 1f)) {
+            frame.box(side * (width + 0.8f), 3.5f, 0f, 0.65f, 7f, 0.8f)
+        }
+        frame.box(0f, 7f, 0f, width * 2f + 2.4f, 0.5f, if (tunnel) 9f else 0.8f)
+        val lights = builder.part("lamps", GL20.GL_TRIANGLES, ATTRS, lamps)
+        lights.box(0f, 6.71f, 0f, width * 2f, 0.09f, 0.24f)
+        return builder.end()
     }
 
     private fun buildFloodlightTowerModel(builder: ModelBuilder): Model {

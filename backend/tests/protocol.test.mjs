@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import worker, { RaceRoomDO } from "../src/index.mjs";
-import { PROTOCOL_VERSION, TRACK_CHECKPOINTS } from "../src/protocol/messages.mjs";
+import { PROTOCOL_VERSION, TRACK_CHECKPOINTS, TRACK_CHECKPOINTS_BY_ID } from "../src/protocol/messages.mjs";
 import { generateRoomCode, isValidRoomCode } from "../src/validation/validator.mjs";
 
 /**
@@ -402,9 +402,16 @@ for (const maxPlayers of [3, 4]) {
     sendMsg(overflow, "join_room", { roomCode });
     assert.equal(lastMsgOfType(overflow, "error")?.code, "ROOM_FULL");
     for (const client of clients) sendMsg(client, "set_ready", { ready: true });
-    sendMsg(host, "start_race");
+    const requestedTrack = maxPlayers === 3 ? "mountain" : "random";
+    sendMsg(host, "start_race", { trackId: requestedTrack });
     await wait(80);
-    for (const client of clients) assert.ok(lastMsgOfType(client, "race_started"));
+    const resolvedTrack = lastMsgOfType(host, "countdown")?.trackId;
+    assert.ok(TRACK_CHECKPOINTS_BY_ID.has(resolvedTrack));
+    if (requestedTrack !== "random") assert.equal(resolvedTrack, requestedTrack);
+    for (const client of clients) assert.equal(lastMsgOfType(client, "race_started")?.trackId, resolvedTrack);
+    const checkpoint = TRACK_CHECKPOINTS_BY_ID.get(resolvedTrack)[1];
+    sendMsg(host, "checkpoint_pass", { checkpointIndex: 1, x: checkpoint.x, z: checkpoint.z });
+    assert.equal(lastMsgOfType(host, "checkpoint_ack")?.nextCheckpoint, 2);
     sendMsg(clients.at(-1), "player_state", { seq: 1, x: 2, z: 25, heading: 0, speed: 30, steer: 0 });
     for (const client of clients.slice(0, -1)) {
       assert.equal(lastMsgOfType(client, "state_snapshot")?.slot, maxPlayers - 1);

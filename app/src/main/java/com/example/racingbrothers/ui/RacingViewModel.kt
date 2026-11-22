@@ -1,5 +1,7 @@
 package com.example.racingbrothers.ui
 
+import com.example.racingbrothers.tracks.CircuitId
+
 import android.app.Application
 import android.content.Context
 import android.net.ConnectivityManager
@@ -165,8 +167,8 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
         sessionManager.setReady(!currentlyReady)
     }
 
-    fun startRace() {
-        sessionManager.startRace()
+    fun startRace(circuit: CircuitId = CircuitId.SPEEDWAY) {
+        sessionManager.startRace(circuit)
     }
 
     fun leaveRoom() {
