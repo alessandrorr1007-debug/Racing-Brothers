@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -53,13 +55,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -249,6 +256,14 @@ fun JoinRoomScreen(
 ) {
     var codeInput by rememberSaveable { mutableStateOf("") }
     var localFormatError by rememberSaveable { mutableStateOf(false) }
+    var hasAttemptedConnection by rememberSaveable { mutableStateOf(false) }
+
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     LaunchedEffect(multiplayerState.roomCode, multiplayerState.connectionStatus) {
         if (multiplayerState.roomCode != null &&
@@ -258,13 +273,27 @@ fun JoinRoomScreen(
         }
     }
 
+    // Before the first submit, the form is shown without any connection status.
+    val visibleConnectionStatus =
+        if (hasAttemptedConnection) multiplayerState.connectionStatus else ConnectionStatus.UNCONFIGURED
+
+    fun submitJoin() {
+        if (!RoomCodeValidator.isValid(codeInput)) {
+            localFormatError = true
+            return
+        }
+        hasAttemptedConnection = true
+        onJoinSubmit(codeInput)
+    }
+
     RoomEntryLayout(
         title = stringResource(R.string.join_room_title),
         backLabel = stringResource(R.string.btn_back),
         backTag = "btn_join_back",
-        connectionStatus = multiplayerState.connectionStatus,
+        connectionStatus = visibleConnectionStatus,
         onBack = onBack,
-        cardWidthFraction = 0.72f
+        cardWidthFraction = 0.72f,
+        adaptForIme = true
     ) { compact ->
         Text(
             text = stringResource(R.string.room_code_input_hint),
@@ -281,8 +310,11 @@ fun JoinRoomScreen(
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
+                keyboardType = KeyboardType.NumberPassword,
                 imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = { submitJoin() }
             ),
             textStyle = MaterialTheme.typography.headlineLarge.copy(
                 fontFamily = JetBrainsMonoFontFamily,
@@ -308,13 +340,18 @@ fun JoinRoomScreen(
             ),
             modifier = Modifier
                 .fillMaxWidth(if (compact) 1f else 0.75f)
+                .focusRequester(focusRequester)
+                .onFocusChanged { if (it.isFocused) keyboardController?.show() }
                 .testTag("input_join_room_code")
         )
 
         val displayedError = when {
             localFormatError -> stringResource(R.string.error_invalid_code)
+            !hasAttemptedConnection -> null
             multiplayerState.errorMessage != null -> playerFacingJoinError(multiplayerState.errorMessage)
-            multiplayerState.connectionStatus == ConnectionStatus.ERROR -> stringResource(R.string.connection_failed)
+            multiplayerState.connectionStatus == ConnectionStatus.ERROR ||
+                multiplayerState.connectionStatus == ConnectionStatus.DISCONNECTED ->
+                stringResource(R.string.connection_failed)
             else -> null
         }
         if (displayedError != null) {
@@ -329,13 +366,7 @@ fun JoinRoomScreen(
 
         val isSixDigitCode = RoomCodeValidator.isValid(codeInput)
         Button(
-            onClick = {
-                if (!isSixDigitCode) {
-                    localFormatError = true
-                } else {
-                    onJoinSubmit(codeInput)
-                }
-            },
+            onClick = { submitJoin() },
             enabled = isSixDigitCode &&
                 multiplayerState.connectionStatus != ConnectionStatus.CONNECTING,
             colors = ButtonDefaults.buttonColors(
@@ -372,6 +403,7 @@ private fun RoomEntryLayout(
     connectionStatus: ConnectionStatus,
     onBack: () -> Unit,
     cardWidthFraction: Float,
+    adaptForIme: Boolean = false,
     footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.(compact: Boolean) -> Unit
 ) {
@@ -380,6 +412,7 @@ private fun RoomEntryLayout(
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(VoidBlack, AsphaltNavy)))
             .windowInsetsPadding(WindowInsets.safeDrawing)
+            .then(if (adaptForIme) Modifier.imePadding() else Modifier)
     ) {
         val availableWidth = maxWidth
         val availableHeight = maxHeight

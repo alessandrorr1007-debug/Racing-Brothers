@@ -91,7 +91,7 @@ class AdaptiveScreensRobolectricTest {
     }
 
     @Test
-    fun `compact landscape join room keeps input, sanitized error, and connect action reachable`() {
+    fun `compact landscape join room hides stale errors until a connection is attempted`() {
         var submittedCode: String? = null
         setContent(fontScale = 1.5f) {
             JoinRoomScreen(
@@ -105,13 +105,16 @@ class AdaptiveScreensRobolectricTest {
             )
         }
 
+        composeRule.onNodeWithTag("join_room_error").assertDoesNotExist()
+        composeRule.onNodeWithText("Desconectado").assertDoesNotExist()
+        composeRule.reach("input_join_room_code").performTextInput("004821")
+        composeRule.reach("btn_connect_room").assertIsEnabled().performClick()
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { assertEquals("004821", submittedCode) }
         composeRule.reach("join_room_error")
             .assertTextContains("No se pudo conectar. Inténtalo nuevamente.")
         composeRule.onNodeWithText("wss://", substring = true).assertDoesNotExist()
         composeRule.onNodeWithText("503", substring = true).assertDoesNotExist()
-        composeRule.reach("input_join_room_code").performTextInput("004821")
-        composeRule.reach("btn_connect_room").assertIsEnabled().performClick()
-        composeRule.runOnIdle { assertEquals("004821", submittedCode) }
     }
 
     @Test
