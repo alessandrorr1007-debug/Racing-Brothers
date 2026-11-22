@@ -1,8 +1,11 @@
 package com.example
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
@@ -16,9 +19,12 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.example.racingbrothers.networking.ConnectionStatus
 import com.example.racingbrothers.networking.MultiplayerUiState
+import com.example.racingbrothers.networking.ServerHealthStatus
+import com.example.racingbrothers.ui.screens.CreateRoomScreen
 import com.example.racingbrothers.ui.screens.JoinRoomScreen
 import com.example.ui.theme.RacingBrothersTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,13 +40,18 @@ class JoinRoomConnectionAndKeyboardTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `join room shows only the form before any connection attempt`() {
+    fun `join room shows server Connected and Disconnected indicator dynamically without claiming room connection`() {
+        var state by mutableStateOf(
+            MultiplayerUiState(
+                serverHealth = ServerHealthStatus.OFFLINE,
+                connectionStatus = ConnectionStatus.DISCONNECTED
+            )
+        )
+
         composeRule.setContent {
             RacingBrothersTheme {
                 JoinRoomScreen(
-                    multiplayerState = MultiplayerUiState(
-                        connectionStatus = ConnectionStatus.DISCONNECTED
-                    ),
+                    multiplayerState = state,
                     onJoinSubmit = {},
                     onJoinedSuccess = {},
                     onBack = {}
@@ -49,19 +60,117 @@ class JoinRoomConnectionAndKeyboardTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("Desconectado").assertDoesNotExist()
+        composeRule.onNodeWithTag("connection_status_badge")
+            .assertIsDisplayed()
+            .assertTextContains("Desconectado")
+        composeRule.onNodeWithText("Conectado a sala").assertDoesNotExist()
         composeRule.onNodeWithTag("join_room_error").assertDoesNotExist()
         composeRule.onNodeWithTag("input_join_room_code").assertIsDisplayed().assertIsFocused()
         composeRule.onNodeWithTag("btn_connect_room").assertIsDisplayed().assertIsNotEnabled()
+
+        // When /health reports backend online, badge updates automatically to Conectado (NOT Conectado a sala)
+        composeRule.runOnIdle {
+            state = state.copy(serverHealth = ServerHealthStatus.ONLINE)
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("connection_status_badge")
+            .assertIsDisplayed()
+            .assertTextContains("Conectado")
+        composeRule.onNodeWithText("Conectado a sala").assertDoesNotExist()
+        composeRule.onNodeWithText("wss://", substring = true).assertDoesNotExist()
     }
 
     @Test
-    fun `join code accepts only digits, keeps leading zeros and enables connect at six digits`() {
+    fun `create room shows Disconnected when backend offline and Conectado a sala only after creation`() {
+        var state by mutableStateOf(
+            MultiplayerUiState(
+                serverHealth = ServerHealthStatus.OFFLINE,
+                connectionStatus = ConnectionStatus.ERROR
+            )
+        )
+
+        composeRule.setContent {
+            RacingBrothersTheme {
+                CreateRoomScreen(
+                    multiplayerState = state,
+                    onRetryCreate = {},
+                    onContinueToGarage = {},
+                    onLeaveAndBack = {}
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("connection_status_badge")
+            .assertIsDisplayed()
+            .assertTextContains("Desconectado")
+        composeRule.onNodeWithText("Conectado a sala").assertDoesNotExist()
+
+        composeRule.runOnIdle {
+            state = state.copy(
+                serverHealth = ServerHealthStatus.ONLINE,
+                connectionStatus = ConnectionStatus.CONNECTED,
+                roomCode = "004821"
+            )
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("connection_status_badge")
+            .assertIsDisplayed()
+            .assertTextContains("Conectado a sala")
+    }
+
+    @Test
+    fun `tapping focused room code input still triggers virtual keyboard show`() {
+        val showCalls = AtomicInteger(0)
+        val fakeKeyboardController = object : SoftwareKeyboardController {
+            override fun show() {
+                showCalls.incrementAndGet()
+            }
+
+            override fun hide() {}
+        }
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalSoftwareKeyboardController provides fakeKeyboardController) {
+                RacingBrothersTheme {
+                    JoinRoomScreen(
+                        multiplayerState = MultiplayerUiState(serverHealth = ServerHealthStatus.OFFLINE),
+                        onJoinSubmit = {},
+                        onJoinedSuccess = {},
+                        onBack = {}
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        val input = composeRule.onNodeWithTag("input_join_room_code")
+        input.assertIsFocused()
+        val callsBeforeTap = showCalls.get()
+
+        // Tap field while it ALREADY has focus -> must explicitly invoke keyboard show again
+        input.performClick()
+        composeRule.waitForIdle()
+
+        assertTrue(
+            "Expected keyboardController.show() to be called on re-tap while focused",
+            showCalls.get() > callsBeforeTap
+        )
+    }
+
+    @Test
+    fun `join code allows typing even when offline, keeps leading zeros, and enables connect at six digits`() {
+        var submitted: String? = null
         composeRule.setContent {
             RacingBrothersTheme {
                 JoinRoomScreen(
-                    multiplayerState = MultiplayerUiState(),
-                    onJoinSubmit = {},
+                    multiplayerState = MultiplayerUiState(
+                        serverHealth = ServerHealthStatus.OFFLINE,
+                        connectionStatus = ConnectionStatus.DISCONNECTED
+                    ),
+                    onJoinSubmit = { submitted = it },
                     onJoinedSuccess = {},
                     onBack = {}
                 )
@@ -84,13 +193,17 @@ class JoinRoomConnectionAndKeyboardTest {
         input.performTextInput("3")
         composeRule.waitForIdle()
         input.assertTextContains("000123")
-        composeRule.onNodeWithTag("btn_connect_room").assertIsEnabled()
+        composeRule.onNodeWithTag("btn_connect_room").assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals("000123", submitted) }
     }
 
     @Test
-    fun `join room shows connecting on submit and connected only after server confirmation`() {
+    fun `join room shows connecting on submit and Conectado a sala only after server confirmation`() {
         var state by mutableStateOf(
-            MultiplayerUiState(connectionStatus = ConnectionStatus.DISCONNECTED)
+            MultiplayerUiState(
+                serverHealth = ServerHealthStatus.ONLINE,
+                connectionStatus = ConnectionStatus.DISCONNECTED
+            )
         )
         val joinedCount = AtomicInteger(0)
 
@@ -108,12 +221,15 @@ class JoinRoomConnectionAndKeyboardTest {
         }
         composeRule.waitForIdle()
 
+        composeRule.onNodeWithTag("connection_status_badge").assertTextContains("Conectado")
+        composeRule.onNodeWithText("Conectado a sala").assertDoesNotExist()
+
         composeRule.onNodeWithTag("input_join_room_code").performTextInput("004821")
         composeRule.onNodeWithTag("btn_connect_room").performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Conectando", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Conectado").assertDoesNotExist()
+        composeRule.onNodeWithText("Conectado a sala").assertDoesNotExist()
 
         composeRule.runOnIdle {
             state = state.copy(
@@ -123,14 +239,17 @@ class JoinRoomConnectionAndKeyboardTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("Conectado").assertIsDisplayed()
+        composeRule.onNodeWithTag("connection_status_badge").assertTextContains("Conectado a sala")
         composeRule.runOnIdle { assertEquals(1, joinedCount.get()) }
     }
 
     @Test
-    fun `join room shows friendly errors only after a failed attempt`() {
+    fun `join room shows friendly errors only after a failed attempt without exposing technical info`() {
         var state by mutableStateOf(
-            MultiplayerUiState(connectionStatus = ConnectionStatus.DISCONNECTED)
+            MultiplayerUiState(
+                serverHealth = ServerHealthStatus.ONLINE,
+                connectionStatus = ConnectionStatus.DISCONNECTED
+            )
         )
 
         composeRule.setContent {
@@ -139,6 +258,7 @@ class JoinRoomConnectionAndKeyboardTest {
                     multiplayerState = state,
                     onJoinSubmit = {
                         state = state.copy(
+                            serverHealth = ServerHealthStatus.OFFLINE,
                             connectionStatus = ConnectionStatus.ERROR,
                             errorMessage = "wss://racing-brothers.workers.dev timeout 503"
                         )
@@ -157,54 +277,20 @@ class JoinRoomConnectionAndKeyboardTest {
 
         composeRule.onNodeWithTag("join_room_error")
             .assertTextContains("No se pudo conectar. Inténtalo nuevamente.")
+        composeRule.onNodeWithTag("connection_status_badge")
+            .assertTextContains("Desconectado")
         composeRule.onNodeWithText("wss://", substring = true).assertDoesNotExist()
         composeRule.onNodeWithText("503", substring = true).assertDoesNotExist()
-        composeRule.onNodeWithText("Desconectado").assertDoesNotExist()
 
         composeRule.runOnIdle {
             state = state.copy(
+                serverHealth = ServerHealthStatus.ONLINE,
                 errorMessage = "La sala no existe o el código es incorrecto."
             )
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("join_room_error")
             .assertTextContains("La sala no existe o el código es incorrecto.")
-    }
-
-    @Test
-    fun `join room built-in keypad enters six digits, supports backspace and clear, and enables connect`() {
-        var submitted: String? = null
-        composeRule.setContent {
-            RacingBrothersTheme {
-                JoinRoomScreen(
-                    multiplayerState = MultiplayerUiState(),
-                    onJoinSubmit = { submitted = it },
-                    onJoinedSuccess = {},
-                    onBack = {}
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        listOf("0", "4", "8", "2", "1", "9").forEach { d ->
-            composeRule.onNodeWithTag("keypad_digit_$d").performClick()
-        }
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("input_join_room_code").assertTextContains("048219")
-        composeRule.onNodeWithTag("btn_connect_room").assertIsEnabled()
-
-        composeRule.onNodeWithTag("keypad_backspace").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("input_join_room_code").assertTextContains("04821")
-        composeRule.onNodeWithTag("btn_connect_room").assertIsNotEnabled()
-
-        composeRule.onNodeWithTag("keypad_digit_7").performClick()
-        composeRule.onNodeWithTag("btn_connect_room").assertIsEnabled().performClick()
-        composeRule.runOnIdle { assertEquals("048217", submitted) }
-
-        composeRule.onNodeWithTag("keypad_clear").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("btn_connect_room").assertIsNotEnabled()
     }
 
     @Test

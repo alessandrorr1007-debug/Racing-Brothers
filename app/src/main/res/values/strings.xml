@@ -10,6 +10,8 @@
     <string name="btn_join_room">UNIRSE A SALA</string>
     <string name="btn_settings">Ajustes</string>
     <string name="server_status_connected">Conectado</string>
+    <string name="server_status_disconnected">Desconectado</string>
+    <string name="room_status_connected">Conectado a sala</string>
     <string name="server_status_connecting">Conectando…</string>
     <string name="server_status_reconnecting">Reconectando…</string>
     <string name="connection_failed">No se pudo conectar. Inténtalo nuevamente.</string>
@@ -30,10 +32,6 @@
     <string name="room_code_label">CÓDIGO DE SALA</string>
     <string name="room_code_input_hint">Ingresa el código de 6 dígitos</string>
     <string name="btn_copy_code">COPIAR</string>
-    <string name="btn_paste_code">PEGAR</string>
-    <string name="btn_clear_code">LIMPIAR</string>
-    <string name="cd_clear_code">Borrar código</string>
-    <string name="cd_backspace_digit">Borrar último dígito</string>
     <string name="btn_share_code">COMPARTIR</string>
     <string name="btn_continue_garage">ELEGIR AUTO</string>
     <string name="btn_connect_room">CONECTAR</string>

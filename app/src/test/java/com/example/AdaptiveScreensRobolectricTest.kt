@@ -106,7 +106,8 @@ class AdaptiveScreensRobolectricTest {
         }
 
         composeRule.onNodeWithTag("join_room_error").assertDoesNotExist()
-        composeRule.onNodeWithText("Desconectado").assertDoesNotExist()
+        composeRule.onNodeWithTag("connection_status_badge").assertTextContains("Desconectado")
+        composeRule.onNodeWithText("Conectado a sala").assertDoesNotExist()
         composeRule.reach("input_join_room_code").performTextInput("004821")
         composeRule.reach("btn_connect_room").assertIsEnabled().performClick()
         composeRule.waitForIdle()

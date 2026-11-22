@@ -114,6 +114,42 @@ class MultiplayerProtocolAndSessionTest {
     }
 
     @Test
+    fun `refreshServerHealth queries real health check and keeps room state separate`() {
+        var backendUp = false
+        var queriedHttpBase: String? = null
+        val healthTransport = object : MultiplayerTransport {
+            override suspend fun checkServerHealth(httpBaseUrl: String): Boolean {
+                queriedHttpBase = httpBaseUrl
+                return backendUp
+            }
+
+            override suspend fun createRoomHttp(httpBaseUrl: String): Result<String> = Result.failure(Exception("unused"))
+            override fun openRoomSocket(wsUrl: String, listener: WebSocketTransportListener): WebSocketConnection {
+                throw UnsupportedOperationException()
+            }
+        }
+        val manager = MultiplayerSessionManager(
+            transport = healthTransport,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        )
+        manager.updateServerConfig("wss://racing-brothers.alessandrorr1007.workers.dev")
+
+        manager.refreshServerHealth()
+        assertEquals("https://racing-brothers.alessandrorr1007.workers.dev", queriedHttpBase)
+        assertEquals(com.example.racingbrothers.networking.ServerHealthStatus.OFFLINE, manager.state.value.serverHealth)
+        assertNull(manager.state.value.roomCode)
+
+        backendUp = true
+        manager.refreshServerHealth()
+        assertEquals(com.example.racingbrothers.networking.ServerHealthStatus.ONLINE, manager.state.value.serverHealth)
+        assertNull(manager.state.value.roomCode)
+        assertEquals(ConnectionStatus.DISCONNECTED, manager.state.value.connectionStatus)
+
+        manager.markNetworkUnavailable()
+        assertEquals(com.example.racingbrothers.networking.ServerHealthStatus.OFFLINE, manager.state.value.serverHealth)
+    }
+
+    @Test
     fun `two independent clients create, join, reject 3rd player, sync selections, ready, race, finish and rematch`() = runBlocking {
         val broker = InMemoryRoomBroker()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)

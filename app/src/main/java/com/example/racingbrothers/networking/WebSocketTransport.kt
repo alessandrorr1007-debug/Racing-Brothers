@@ -29,6 +29,7 @@ interface WebSocketTransportListener {
  * while automated Robolectric & JVM tests can inject an in-memory multi-client broker.
  */
 interface MultiplayerTransport {
+    suspend fun checkServerHealth(httpBaseUrl: String): Boolean = true
     suspend fun createRoomHttp(httpBaseUrl: String): Result<String>
     fun openRoomSocket(wsUrl: String, listener: WebSocketTransportListener): WebSocketConnection
 }
@@ -40,6 +41,34 @@ class OkHttpMultiplayerTransport(
         .pingInterval(15, TimeUnit.SECONDS)
         .build()
 ) : MultiplayerTransport {
+
+    private val healthClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .callTimeout(6, TimeUnit.SECONDS)
+            .build()
+    }
+
+    override suspend fun checkServerHealth(httpBaseUrl: String): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val url = "${httpBaseUrl.trimEnd('/')}/health"
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header("Accept", "application/json")
+                .header("X-Protocol-Version", ProtocolConstants.PROTOCOL_VERSION.toString())
+                .build()
+
+            healthClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use false
+                val rawBody = response.body?.string().orEmpty()
+                val json = runCatching { JSONObject(rawBody) }.getOrNull() ?: return@use false
+                json.optString("status") == "ok" &&
+                    json.optBoolean("durableObjectsBound", false)
+            }
+        }.getOrDefault(false)
+    }
 
     override suspend fun createRoomHttp(httpBaseUrl: String): Result<String> = withContext(Dispatchers.IO) {
         runCatching {

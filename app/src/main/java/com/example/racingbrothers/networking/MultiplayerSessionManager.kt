@@ -24,8 +24,15 @@ enum class ConnectionStatus {
     ERROR
 }
 
+enum class ServerHealthStatus {
+    CHECKING,
+    ONLINE,
+    OFFLINE
+}
+
 data class MultiplayerUiState(
     val serverBaseUrl: String = "",
+    val serverHealth: ServerHealthStatus = ServerHealthStatus.OFFLINE,
     val connectionStatus: ConnectionStatus = ConnectionStatus.UNCONFIGURED,
     val roomCode: String? = null,
     val localPlayerId: String? = null,
@@ -95,6 +102,7 @@ class MultiplayerSessionManager(
     private var reconnectAttempts: Int = 0
     private var reconnectJob: Job? = null
     private var pingJob: Job? = null
+    private var healthCheckJob: Job? = null
 
     companion object {
         private const val MAX_RECONNECT_ATTEMPTS = 5
@@ -125,12 +133,73 @@ class MultiplayerSessionManager(
                     }
                 }
             }
+            val newHealth = when (validation) {
+                is ServerEndpointValidation.Valid -> current.serverHealth
+                else -> ServerHealthStatus.OFFLINE
+            }
             current.copy(
                 serverBaseUrl = rawServerUrl.trim(),
+                serverHealth = newHealth,
                 connectionStatus = newStatus,
                 errorMessage = (validation as? ServerEndpointValidation.Invalid)?.reason
             )
         }
+    }
+
+    private var healthMonitorCount: Int = 0
+    private var healthPollJob: Job? = null
+
+    fun refreshServerHealth() {
+        val validation = ServerEndpointParser.validate(_state.value.serverBaseUrl)
+        if (validation !is ServerEndpointValidation.Valid) {
+            _state.update { it.copy(serverHealth = ServerHealthStatus.OFFLINE) }
+            return
+        }
+        healthCheckJob?.cancel()
+        healthCheckJob = scope.launch {
+            val isHealthy = transport.checkServerHealth(validation.httpBaseUrl)
+            _state.update {
+                it.copy(
+                    serverHealth = if (isHealthy) ServerHealthStatus.ONLINE else ServerHealthStatus.OFFLINE
+                )
+            }
+        }
+    }
+
+    fun startHealthMonitor(pollIntervalMs: Long = 8_000L) {
+        healthMonitorCount += 1
+        refreshServerHealth()
+        if (healthPollJob?.isActive == true) return
+        healthPollJob = scope.launch {
+            while (healthMonitorCount > 0) {
+                delay(pollIntervalMs)
+                if (healthMonitorCount <= 0) break
+                val validation = ServerEndpointParser.validate(_state.value.serverBaseUrl)
+                val isHealthy = if (validation is ServerEndpointValidation.Valid) {
+                    transport.checkServerHealth(validation.httpBaseUrl)
+                } else {
+                    false
+                }
+                _state.update {
+                    it.copy(
+                        serverHealth = if (isHealthy) ServerHealthStatus.ONLINE else ServerHealthStatus.OFFLINE
+                    )
+                }
+            }
+        }
+    }
+
+    fun stopHealthMonitor() {
+        healthMonitorCount = (healthMonitorCount - 1).coerceAtLeast(0)
+        if (healthMonitorCount == 0) {
+            healthPollJob?.cancel()
+            healthPollJob = null
+        }
+    }
+
+    fun markNetworkUnavailable() {
+        healthCheckJob?.cancel()
+        _state.update { it.copy(serverHealth = ServerHealthStatus.OFFLINE) }
     }
 
     fun updateLocalSetup(vehicleId: String, colorId: String, characterId: String) {
@@ -192,6 +261,7 @@ class MultiplayerSessionManager(
                 scope.launch {
                     val result = transport.createRoomHttp(validation.httpBaseUrl)
                     result.onSuccess { roomCode ->
+                        _state.update { it.copy(serverHealth = ServerHealthStatus.ONLINE) }
                         connectToRoomSocket(
                             wsBaseUrl = validation.wsBaseUrl,
                             roomCode = roomCode,
@@ -204,6 +274,7 @@ class MultiplayerSessionManager(
                                 errorMessage = err.message ?: "No se pudo conectar con el servidor."
                             )
                         }
+                        refreshServerHealth()
                     }
                 }
             }
@@ -354,6 +425,7 @@ class MultiplayerSessionManager(
                                 )
                             }
                         }
+                        refreshServerHealth()
                     }
                 }
             }
@@ -416,6 +488,7 @@ class MultiplayerSessionManager(
                 lastRemoteSeq = -1L
                 _state.update {
                     it.copy(
+                        serverHealth = ServerHealthStatus.ONLINE,
                         connectionStatus = ConnectionStatus.CONNECTED,
                         roomCode = roomCode,
                         localPlayerId = playerId,
@@ -641,9 +714,11 @@ class MultiplayerSessionManager(
         sessionTokenInMemory = null
         lastRemoteSeq = -1L
         val currentServer = _state.value.serverBaseUrl
+        val currentHealth = _state.value.serverHealth
         val status = if (currentServer.isBlank()) ConnectionStatus.UNCONFIGURED else ConnectionStatus.DISCONNECTED
         _state.value = MultiplayerUiState(
             serverBaseUrl = currentServer,
+            serverHealth = currentHealth,
             connectionStatus = status
         )
     }

@@ -1,8 +1,14 @@
 package com.example.racingbrothers.ui
 
 import android.app.Application
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.BuildConfig
 import com.example.racingbrothers.audio.ArcadeSoundManager
 import com.example.racingbrothers.camera.CameraMode
 import com.example.racingbrothers.networking.MultiplayerSessionManager
@@ -20,6 +26,10 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
     val sessionManager: MultiplayerSessionManager = MultiplayerSessionManager.instance
     val soundManager: ArcadeSoundManager = ArcadeSoundManager()
 
+    private val connectivityManager =
+        application.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
     val preferences: StateFlow<UserPreferences> = preferencesRepository.preferencesFlow
         .stateIn(
             scope = viewModelScope,
@@ -31,14 +41,65 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         if (sessionManager.state.value.serverBaseUrl.isBlank()) {
-            sessionManager.updateServerConfig(com.example.BuildConfig.DEFAULT_SERVER_URL)
+            sessionManager.updateServerConfig(BuildConfig.DEFAULT_SERVER_URL)
         }
+        registerNetworkMonitor()
         viewModelScope.launch {
             preferencesRepository.preferencesFlow.collect { prefs ->
                 soundManager.enabled = prefs.soundEnabled
                 sessionManager.updateServerConfig(prefs.serverBaseUrl)
+                sessionManager.refreshServerHealth()
             }
         }
+    }
+
+    private fun registerNetworkMonitor() {
+        val cm = connectivityManager ?: return
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                sessionManager.refreshServerHealth()
+            }
+
+            override fun onLost(network: Network) {
+                val activeCaps = runCatching {
+                    cm.getNetworkCapabilities(cm.activeNetwork)
+                }.getOrNull()
+                val hasInternet = activeCaps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                if (!hasInternet) {
+                    sessionManager.markNetworkUnavailable()
+                } else {
+                    sessionManager.refreshServerHealth()
+                }
+            }
+
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) {
+                if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                    sessionManager.refreshServerHealth()
+                }
+            }
+        }
+        runCatching {
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            cm.registerNetworkCallback(request, callback)
+            networkCallback = callback
+        }
+    }
+
+    fun refreshServerHealth() {
+        sessionManager.refreshServerHealth()
+    }
+
+    fun startHealthMonitor() {
+        sessionManager.startHealthMonitor()
+    }
+
+    fun stopHealthMonitor() {
+        sessionManager.stopHealthMonitor()
     }
 
     fun playClick() {
@@ -59,6 +120,7 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
                 serverBaseUrl = serverBaseUrl
             )
             sessionManager.updateServerConfig(serverBaseUrl)
+            sessionManager.refreshServerHealth()
         }
     }
 
@@ -115,6 +177,10 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
+        networkCallback?.let { cb ->
+            runCatching { connectivityManager?.unregisterNetworkCallback(cb) }
+        }
+        networkCallback = null
         soundManager.release()
         super.onCleared()
     }

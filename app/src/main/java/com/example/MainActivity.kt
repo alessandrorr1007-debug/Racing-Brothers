@@ -92,6 +92,8 @@ fun RacingBrothersApp(
         composable(RacingRoutes.CREATE_ROOM) {
             CreateRoomScreen(
                 multiplayerState = mpState,
+                onStartHealthMonitor = { viewModel.startHealthMonitor() },
+                onStopHealthMonitor = { viewModel.stopHealthMonitor() },
                 onRetryCreate = {
                     viewModel.playClick()
                     viewModel.createRoom()
@@ -111,6 +113,8 @@ fun RacingBrothersApp(
         composable(RacingRoutes.JOIN_ROOM) {
             JoinRoomScreen(
                 multiplayerState = mpState,
+                onStartHealthMonitor = { viewModel.startHealthMonitor() },
+                onStopHealthMonitor = { viewModel.stopHealthMonitor() },
                 onJoinSubmit = { code ->
                     viewModel.playClick()
                     viewModel.joinRoom(code)
