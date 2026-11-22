@@ -90,6 +90,7 @@ class MultiplayerSessionManager(
     private var localCharacterId: String = CharacterCatalog.characters.first().id
 
     private val outboundSeq = AtomicLong(0L)
+    private val connectionGeneration = AtomicLong(0L)
     private var lastRemoteSeq: Long = -1L
     private var reconnectAttempts: Int = 0
     private var reconnectJob: Job? = null
@@ -173,9 +174,16 @@ class MultiplayerSessionManager(
             }
             is ServerEndpointValidation.Valid -> {
                 closeSocketInternal(intentional = true)
+                sessionTokenInMemory = null
+                lastRemoteSeq = -1L
                 _state.update {
                     it.copy(
                         connectionStatus = ConnectionStatus.CONNECTING,
+                        roomCode = null,
+                        localPlayerId = null,
+                        phase = RoomPhase.IDLE,
+                        players = emptyList(),
+                        countdownValue = null,
                         errorMessage = null,
                         roomClosedReason = null,
                         raceResults = null
@@ -237,9 +245,16 @@ class MultiplayerSessionManager(
             }
             is ServerEndpointValidation.Valid -> {
                 closeSocketInternal(intentional = true)
+                sessionTokenInMemory = null
+                lastRemoteSeq = -1L
                 _state.update {
                     it.copy(
                         connectionStatus = ConnectionStatus.CONNECTING,
+                        roomCode = null,
+                        localPlayerId = null,
+                        phase = RoomPhase.IDLE,
+                        players = emptyList(),
+                        countdownValue = null,
                         errorMessage = null,
                         roomClosedReason = null,
                         raceResults = null
@@ -255,6 +270,7 @@ class MultiplayerSessionManager(
     }
 
     private fun connectToRoomSocket(wsBaseUrl: String, roomCode: String, isReconnect: Boolean) {
+        val gen = connectionGeneration.incrementAndGet()
         currentWsBaseUrl = wsBaseUrl
         intentionalDisconnect = false
         val wsUrl = "${wsBaseUrl.trimEnd('/')}/ws/$roomCode"
@@ -262,6 +278,10 @@ class MultiplayerSessionManager(
             wsUrl = wsUrl,
             listener = object : WebSocketTransportListener {
                 override fun onOpen(connection: WebSocketConnection) {
+                    if (gen != connectionGeneration.get()) {
+                        runCatching { connection.close(1000, "stale_connection") }
+                        return
+                    }
                     activeConnection = connection
                     reconnectAttempts = 0
                     val token = sessionTokenInMemory
@@ -280,25 +300,47 @@ class MultiplayerSessionManager(
                 }
 
                 override fun onMessage(text: String) {
+                    if (gen != connectionGeneration.get()) return
                     handleIncomingMessage(text)
                 }
 
                 override fun onClosed(code: Int, reason: String) {
+                    if (gen != connectionGeneration.get()) return
                     pingJob?.cancel()
                     activeConnection = null
-                    if (!intentionalDisconnect && code != 1000 && code != 4001 && code != 4003 && code != 4004) {
+                    if (intentionalDisconnect) return
+
+                    val wasJoinedInRoom = _state.value.roomCode != null
+                    if (wasJoinedInRoom && code != 1000 && code != 4001 && code != 4003 && code != 4004) {
                         scheduleReconnect(roomCode)
-                    } else if (!intentionalDisconnect && reason.isNotBlank()) {
+                    } else if (wasJoinedInRoom && reason.isNotBlank()) {
                         _state.update {
                             it.copy(
                                 connectionStatus = ConnectionStatus.DISCONNECTED,
                                 roomClosedReason = reason
                             )
                         }
+                    } else if (!wasJoinedInRoom) {
+                        // Rejected or closed before join confirmation: stay on Join screen and show error
+                        val fallbackMessage = when (reason) {
+                            "ROOM_NOT_FOUND" -> "La sala no existe o el código es incorrecto."
+                            "ROOM_CLOSED" -> "Esta sala ya fue cerrada."
+                            "INVALID_ROOM_CODE" -> "El código de sala no coincide."
+                            "ROOM_FULL" -> "La sala está llena (máximo 2 jugadores)."
+                            "RACE_IN_PROGRESS" -> "La carrera ya ha comenzado."
+                            else -> "No se pudo conectar con la sala."
+                        }
+                        _state.update { current ->
+                            current.copy(
+                                connectionStatus = ConnectionStatus.ERROR,
+                                errorMessage = current.errorMessage ?: fallbackMessage
+                            )
+                        }
                     }
                 }
 
                 override fun onFailure(message: String) {
+                    if (gen != connectionGeneration.get()) return
                     pingJob?.cancel()
                     activeConnection = null
                     if (!intentionalDisconnect) {
@@ -316,7 +358,9 @@ class MultiplayerSessionManager(
                 }
             }
         )
-        activeConnection = conn
+        if (gen == connectionGeneration.get()) {
+            activeConnection = conn
+        }
     }
 
     private fun scheduleReconnect(roomCode: String) {
@@ -523,7 +567,14 @@ class MultiplayerSessionManager(
             "error" -> {
                 val code = json.optString("code", "UNKNOWN")
                 val msg = json.optString("message", "Error del servidor.")
-                val fatalRoomError = code in setOf("ROOM_FULL", "ROOM_NOT_FOUND", "ROOM_CLOSED", "INVALID_ROOM_CODE")
+                val fatalRoomError = code in setOf(
+                    "ROOM_FULL",
+                    "ROOM_NOT_FOUND",
+                    "ROOM_CLOSED",
+                    "INVALID_ROOM_CODE",
+                    "RACE_IN_PROGRESS",
+                    "UNSUPPORTED_PROTOCOL"
+                )
                 if (fatalRoomError) {
                     closeSocketInternal(intentional = true)
                 }
@@ -598,6 +649,7 @@ class MultiplayerSessionManager(
     }
 
     private fun closeSocketInternal(intentional: Boolean) {
+        connectionGeneration.incrementAndGet()
         intentionalDisconnect = intentional
         reconnectJob?.cancel()
         pingJob?.cancel()

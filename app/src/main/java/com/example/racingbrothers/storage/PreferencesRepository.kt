@@ -66,7 +66,7 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
             soundEnabled = prefs[Keys.SOUND_ENABLED] ?: true,
             graphicsQuality = GraphicsQuality.fromId(prefs[Keys.GRAPHICS_QUALITY]),
             preferredCameraMode = CameraMode.fromId(prefs[Keys.CAMERA_MODE] ?: CameraMode.CLOSE_CHASE.id),
-            serverBaseUrl = prefs[Keys.SERVER_BASE_URL] ?: BuildConfig.DEFAULT_SERVER_URL
+            serverBaseUrl = prefs[Keys.SERVER_BASE_URL]?.takeIf { it.isNotBlank() } ?: BuildConfig.DEFAULT_SERVER_URL
         )
     }
 

@@ -75,7 +75,11 @@ fun RacingBrothersApp(
                 },
                 onJoinRoomClick = {
                     viewModel.playClick()
-                    viewModel.clearError()
+                    if (mpState.roomCode != null) {
+                        viewModel.leaveRoom()
+                    } else {
+                        viewModel.clearError()
+                    }
                     navController.navigate(RacingRoutes.JOIN_ROOM)
                 },
                 onSaveSettings = { sound, quality, cam, url ->

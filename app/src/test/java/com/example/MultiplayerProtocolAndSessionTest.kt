@@ -69,6 +69,51 @@ class MultiplayerProtocolAndSessionTest {
     }
 
     @Test
+    fun `extractFromInput preserves exact 6-digit code inside shared invite message`() {
+        assertEquals(
+            "048219",
+            RoomCodeValidator.extractFromInput("¡Únete a mi carrera 1 vs 1 en Racing Brothers! Código de sala: 048219")
+        )
+        assertEquals("004821", RoomCodeValidator.extractFromInput("004 - 821"))
+        assertEquals("004821", RoomCodeValidator.extractFromInput("ab00-48!2199"))
+    }
+
+    @Test
+    fun `rejected join shows error without setting roomClosedReason`() {
+        val rejectingTransport = object : MultiplayerTransport {
+            override suspend fun createRoomHttp(httpBaseUrl: String): Result<String> = Result.failure(Exception("unused"))
+            override fun openRoomSocket(wsUrl: String, listener: WebSocketTransportListener): WebSocketConnection {
+                val conn = object : WebSocketConnection {
+                    override fun send(text: String): Boolean {
+                        listener.onMessage(
+                            JSONObject().put("v", 1).put("type", "error")
+                                .put("code", "RACE_IN_PROGRESS")
+                                .put("message", "La carrera ya ha comenzado.")
+                                .toString()
+                        )
+                        listener.onClosed(4003, "RACE_IN_PROGRESS")
+                        return true
+                    }
+                    override fun close(code: Int, reason: String) {}
+                }
+                listener.onOpen(conn)
+                return conn
+            }
+        }
+        val manager = MultiplayerSessionManager(
+            transport = rejectingTransport,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        )
+        manager.updateServerConfig("wss://test-broker.workers.dev")
+        manager.joinRoom("048219", "vortex_rs", "electric_cobalt", "nico_turbo")
+
+        assertEquals(ConnectionStatus.ERROR, manager.state.value.connectionStatus)
+        assertEquals("La carrera ya ha comenzado.", manager.state.value.errorMessage)
+        assertNull(manager.state.value.roomClosedReason)
+        assertNull(manager.state.value.roomCode)
+    }
+
+    @Test
     fun `two independent clients create, join, reject 3rd player, sync selections, ready, race, finish and rematch`() = runBlocking {
         val broker = InMemoryRoomBroker()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)

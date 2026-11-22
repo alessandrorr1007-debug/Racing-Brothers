@@ -30,6 +30,9 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
     val multiplayerState: StateFlow<MultiplayerUiState> = sessionManager.state
 
     init {
+        if (sessionManager.state.value.serverBaseUrl.isBlank()) {
+            sessionManager.updateServerConfig(com.example.BuildConfig.DEFAULT_SERVER_URL)
+        }
         viewModelScope.launch {
             preferencesRepository.preferencesFlow.collect { prefs ->
                 soundManager.enabled = prefs.soundEnabled

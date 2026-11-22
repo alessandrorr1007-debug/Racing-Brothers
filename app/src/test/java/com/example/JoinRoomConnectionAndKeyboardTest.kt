@@ -170,4 +170,61 @@ class JoinRoomConnectionAndKeyboardTest {
         composeRule.onNodeWithTag("join_room_error")
             .assertTextContains("La sala no existe o el código es incorrecto.")
     }
+
+    @Test
+    fun `join room built-in keypad enters six digits, supports backspace and clear, and enables connect`() {
+        var submitted: String? = null
+        composeRule.setContent {
+            RacingBrothersTheme {
+                JoinRoomScreen(
+                    multiplayerState = MultiplayerUiState(),
+                    onJoinSubmit = { submitted = it },
+                    onJoinedSuccess = {},
+                    onBack = {}
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        listOf("0", "4", "8", "2", "1", "9").forEach { d ->
+            composeRule.onNodeWithTag("keypad_digit_$d").performClick()
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("input_join_room_code").assertTextContains("048219")
+        composeRule.onNodeWithTag("btn_connect_room").assertIsEnabled()
+
+        composeRule.onNodeWithTag("keypad_backspace").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("input_join_room_code").assertTextContains("04821")
+        composeRule.onNodeWithTag("btn_connect_room").assertIsNotEnabled()
+
+        composeRule.onNodeWithTag("keypad_digit_7").performClick()
+        composeRule.onNodeWithTag("btn_connect_room").assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals("048217", submitted) }
+
+        composeRule.onNodeWithTag("keypad_clear").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("btn_connect_room").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `join room extracts 6-digit code from pasted shared invite message`() {
+        composeRule.setContent {
+            RacingBrothersTheme {
+                JoinRoomScreen(
+                    multiplayerState = MultiplayerUiState(),
+                    onJoinSubmit = {},
+                    onJoinedSuccess = {},
+                    onBack = {}
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        val input = composeRule.onNodeWithTag("input_join_room_code")
+        input.performTextInput("¡Únete a mi carrera 1 vs 1 en Racing Brothers! Código de sala: 048219")
+        composeRule.waitForIdle()
+        input.assertTextContains("048219")
+        composeRule.onNodeWithTag("btn_connect_room").assertIsEnabled()
+    }
 }

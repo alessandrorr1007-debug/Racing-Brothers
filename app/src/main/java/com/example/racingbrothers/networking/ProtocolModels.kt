@@ -12,8 +12,23 @@ object ProtocolConstants {
 }
 
 object RoomCodeValidator {
+    private val STANDALONE_SIX_DIGIT_REGEX = Regex("(?<!\\d)\\d{6}(?!\\d)")
+
     fun normalize(raw: String): String =
         raw.filter { it in '0'..'9' }.take(ProtocolConstants.ROOM_CODE_LENGTH)
+
+    /**
+     * Extracts a 6-digit room code from either direct typing or a pasted invite message
+     * (e.g., "¡Únete a mi carrera 1 vs 1 en Racing Brothers! Código de sala: 048219"),
+     * falling back to standard digit normalization.
+     */
+    fun extractFromInput(raw: String): String {
+        val standaloneMatch = STANDALONE_SIX_DIGIT_REGEX.find(raw)
+        if (standaloneMatch != null && raw.any { it.isLetter() || it == ':' }) {
+            return standaloneMatch.value
+        }
+        return normalize(raw)
+    }
 
     fun isValid(code: String): Boolean = ProtocolConstants.ROOM_CODE_REGEX.matches(code)
 }
