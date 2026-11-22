@@ -19,7 +19,6 @@ import com.example.racingbrothers.networking.MultiplayerUiState
 import com.example.racingbrothers.ui.screens.JoinRoomScreen
 import com.example.ui.theme.RacingBrothersTheme
 import org.junit.Assert.assertEquals
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,17 +32,6 @@ class JoinRoomConnectionAndKeyboardTest {
 
     @get:Rule
     val composeRule = createComposeRule()
-
-    @Before
-    fun pauseAnimations() {
-        // The CONNECTING state renders an indeterminate CircularProgressIndicator.
-        // With automatic advancement enabled, Compose would never become idle.
-        composeRule.mainClock.autoAdvance = false
-    }
-
-    private fun advanceFrame() {
-        composeRule.mainClock.advanceTimeByFrame()
-    }
 
     @Test
     fun `join room shows only the form before any connection attempt`() {
@@ -59,7 +47,7 @@ class JoinRoomConnectionAndKeyboardTest {
                 )
             }
         }
-        advanceFrame()
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Desconectado").assertDoesNotExist()
         composeRule.onNodeWithTag("join_room_error").assertDoesNotExist()
@@ -79,23 +67,22 @@ class JoinRoomConnectionAndKeyboardTest {
                 )
             }
         }
-        advanceFrame()
+        composeRule.waitForIdle()
 
         val input = composeRule.onNodeWithTag("input_join_room_code")
         input.performTextInput("a0b0!4-8 2 1 9")
-        advanceFrame()
+        composeRule.waitForIdle()
         input.assertTextContains("004821")
         composeRule.onNodeWithTag("btn_connect_room").assertIsEnabled()
 
         input.performTextClearance()
-        advanceFrame()
         input.performTextInput("00012")
-        advanceFrame()
+        composeRule.waitForIdle()
         input.assertTextContains("00012")
         composeRule.onNodeWithTag("btn_connect_room").assertIsNotEnabled()
 
         input.performTextInput("3")
-        advanceFrame()
+        composeRule.waitForIdle()
         input.assertTextContains("000123")
         composeRule.onNodeWithTag("btn_connect_room").assertIsEnabled()
     }
@@ -119,24 +106,25 @@ class JoinRoomConnectionAndKeyboardTest {
                 )
             }
         }
-        advanceFrame()
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("input_join_room_code").performTextInput("004821")
-        advanceFrame()
         composeRule.onNodeWithTag("btn_connect_room").performClick()
-        advanceFrame()
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Conectando", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Conectado").assertDoesNotExist()
 
-        state = state.copy(
-            connectionStatus = ConnectionStatus.CONNECTED,
-            roomCode = "004821"
-        )
-        advanceFrame()
+        composeRule.runOnIdle {
+            state = state.copy(
+                connectionStatus = ConnectionStatus.CONNECTED,
+                roomCode = "004821"
+            )
+        }
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Conectado").assertIsDisplayed()
-        assertEquals(1, joinedCount.get())
+        composeRule.runOnIdle { assertEquals(1, joinedCount.get()) }
     }
 
     @Test
@@ -160,13 +148,12 @@ class JoinRoomConnectionAndKeyboardTest {
                 )
             }
         }
-        advanceFrame()
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("join_room_error").assertDoesNotExist()
         composeRule.onNodeWithTag("input_join_room_code").performTextInput("004821")
-        advanceFrame()
         composeRule.onNodeWithTag("btn_connect_room").performClick()
-        advanceFrame()
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("join_room_error")
             .assertTextContains("No se pudo conectar. Inténtalo nuevamente.")
@@ -174,10 +161,12 @@ class JoinRoomConnectionAndKeyboardTest {
         composeRule.onNodeWithText("503", substring = true).assertDoesNotExist()
         composeRule.onNodeWithText("Desconectado").assertDoesNotExist()
 
-        state = state.copy(
-            errorMessage = "La sala no existe o el código es incorrecto."
-        )
-        advanceFrame()
+        composeRule.runOnIdle {
+            state = state.copy(
+                errorMessage = "La sala no existe o el código es incorrecto."
+            )
+        }
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("join_room_error")
             .assertTextContains("La sala no existe o el código es incorrecto.")
     }

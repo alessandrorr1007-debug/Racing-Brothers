@@ -64,7 +64,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -261,12 +260,9 @@ fun JoinRoomScreen(
 
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-    var isCodeFieldAttached by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isCodeFieldAttached) {
-        if (isCodeFieldAttached) {
-            focusRequester.requestFocus()
-        }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
     }
 
     LaunchedEffect(multiplayerState.roomCode, multiplayerState.connectionStatus) {
@@ -345,7 +341,6 @@ fun JoinRoomScreen(
             modifier = Modifier
                 .fillMaxWidth(if (compact) 1f else 0.75f)
                 .focusRequester(focusRequester)
-                .onGloballyPositioned { isCodeFieldAttached = true }
                 .onFocusChanged { if (it.isFocused) keyboardController?.show() }
                 .testTag("input_join_room_code")
         )
