@@ -215,7 +215,7 @@ object GdxMeshFactory {
 
         val asphaltMat = Material(ColorAttribute.createDiffuse(Color(0.11f, 0.13f, 0.17f, 1f)))
         val centerDashMat = Material(ColorAttribute.createDiffuse(Color(0.75f, 0.85f, 0.98f, 1f)))
-        val curbBlueMat = Material(ColorAttribute.createDiffuse(Color(0.0f, 0.68f, 1.0f, 1f)))
+        val curbRedMat = Material(ColorAttribute.createDiffuse(Color(0.9f, 0.12f, 0.18f, 1f)))
         val curbWhiteMat = Material(ColorAttribute.createDiffuse(Color(0.90f, 0.94f, 0.99f, 1f)))
         val barrierMat = Material(ColorAttribute.createDiffuse(Color(0.20f, 0.28f, 0.40f, 1f)))
         val neonRailMat = Material(ColorAttribute.createDiffuse(Color(0.0f, 0.78f, 1.0f, 1f)))
@@ -252,8 +252,8 @@ object GdxMeshFactory {
                         .box(0.32f, 0.03f, segLen * 0.52f)
                 }
 
-                // Alternating blue/white rumble curbs
-                val curbMat = if (i % 2 == 0) curbBlueMat else curbWhiteMat
+                // Alternating red and white rumble curbs
+                val curbMat = if (i % 2 == 0) curbRedMat else curbWhiteMat
                 val curbOffset = roadHalfW + 0.75f
                 for (side in listOf(-1f, 1f)) {
                     val cNode = builder.node()
@@ -402,6 +402,23 @@ object GdxMeshFactory {
             val inst = ModelInstance(model)
             inst.transform.idt().translate(prop.x, 0f, prop.z).rotate(0f, 1f, 0f, prop.yawDeg)
             staticInstances.add(inst)
+        }
+
+        val mountainModel = builder.createCone(
+            1f, 1f, 1f, 6,
+            Material(ColorAttribute.createDiffuse(Color(0.11f, 0.17f, 0.23f, 1f))),
+            ATTRS
+        ).also { disposables.add(it) }
+        for (i in samples.indices step 12) {
+            val point = samples[i]
+            val offset = barrierHalfW + 65f
+            val height = 16f + (i * 7 % 17)
+            val mountain = ModelInstance(mountainModel)
+            mountain.transform
+                .setToTranslation(point.x + point.rightX * offset, height / 2f, point.z + point.rightZ * offset)
+                .rotate(0f, 1f, 0f, i * 19f)
+                .scale(42f, height, 36f)
+            staticInstances.add(mountain)
         }
 
         return GdxTrackWorld(

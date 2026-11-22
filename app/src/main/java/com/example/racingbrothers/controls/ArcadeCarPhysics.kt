@@ -5,6 +5,7 @@ import com.example.racingbrothers.vehicles.BalancedV1Stats
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.sign
 import kotlin.math.sin
@@ -28,7 +29,8 @@ data class CarPhysicsState(
     val completedLaps: Int = 0,
     val nextCheckpoint: Int = 1,
     val finished: Boolean = false,
-    val collidedWithWall: Boolean = false
+    val collidedWithWall: Boolean = false,
+    val lateralSpeedMps: Float = 0f
 )
 
 data class CheckpointEvent(
@@ -79,9 +81,11 @@ class ArcadeCarPhysics {
             // Progressive arcade acceleration curve (snappy launch, tapering near top speed)
             val speedRatio = (speed / BalancedV1Stats.MAX_SPEED_MPS).coerceIn(0f, 1f)
             val accelScale = 1.15f - 0.45f * speedRatio
-            speed += BalancedV1Stats.ACCELERATION_MPS2 * accelScale * throttle * dt
+            val acceleration = if (speed < 0f) BalancedV1Stats.BRAKE_DECEL_MPS2
+            else BalancedV1Stats.ACCELERATION_MPS2 * accelScale
+            speed += acceleration * throttle * dt
         } else if (brake > 0.01f) {
-            if (speed > 0.8f) {
+            if (speed > 0f) {
                 speed = (speed - BalancedV1Stats.BRAKE_DECEL_MPS2 * brake * dt).coerceAtLeast(0f)
             } else {
                 // Reverse gear
@@ -97,10 +101,12 @@ class ArcadeCarPhysics {
             }
         }
 
-        // Scrub a little speed on sharp cornering for arcade grip feel
-        if (abs(steerInput) > 0.3f && abs(speed) > 12f) {
-            speed -= sign(speed) * abs(steerInput) * 3.8f * dt
-        }
+        val targetWheelSteer = -steerInput * 26f
+        val smoothSteerDeg = state.steerAngleDeg +
+            (targetWheelSteer - state.steerAngleDeg) * (1f - exp(-13f * dt))
+        val steering = smoothSteerDeg / 26f
+        val corneringDrag = steering * steering * ((abs(speed) - 12f) / 10f).coerceIn(0f, 1f)
+        speed -= sign(speed) * corneringDrag * 3.8f * dt
 
         speed = speed.coerceIn(-BalancedV1Stats.MAX_REVERSE_MPS, BalancedV1Stats.MAX_SPEED_MPS)
 
@@ -108,22 +114,35 @@ class ArcadeCarPhysics {
         val speedFactor = (abs(speed) / 9f).coerceIn(0f, 1f)
         val highSpeedStability = 1f - 0.28f * (abs(speed) / BalancedV1Stats.MAX_SPEED_MPS).coerceIn(0f, 1f)
         val reverseDir = if (speed >= -0.05f) 1f else -1f
-        // Positive steerInput = turn right -> in +X right / +Z forward, turning right decreases heading?
-        // Wait: fwdX = sin(heading), fwdZ = cos(heading). Increasing heading moves fwd toward +X (right)!
-        // Let's verify: heading=0 -> (0, 1). heading=+pi/2 -> (1, 0) which is +X (right in left-handed or screen-right when camera looks +Z).
-        // Wait in right-handed 3D (+Y up, camera behind car looking +Z): screen right is -X!
-        // Let's check: cross(forward=(0,0,1), up=(0,1,0)) = (-1, 0, 0) -> -X is right!
-        // Let's be 100% consistent with right-handed OpenGL/libGDX!
-        // In libGDX right-handed coordinates (+Y up):
-        // Forward = (sin(h), 0, cos(h)). Up = (0, 1, 0).
-        // Right = Forward x Up = (0*0 - cos*1, 0, sin*1 - 0) = (-cos(h), 0, sin(h)).
-        // So turning RIGHT rotates Forward toward (-cos(h), 0, sin(h)), which means DECREASING heading h!
-        val deltaHeading = -steerInput * BalancedV1Stats.STEER_RATE_RAD_PER_SEC * speedFactor * highSpeedStability * reverseDir * dt
+        // Front-wheel angle uses libGDX's right-handed coordinates.
+        val deltaHeading = steering * BalancedV1Stats.STEER_RATE_RAD_PER_SEC *
+            speedFactor * highSpeedStability * reverseDir * dt
         var heading = normalizeAngle(state.headingRad + deltaHeading)
 
-        // 3. Integrate position
-        var nextX = state.x + sin(heading) * speed * dt
-        var nextZ = state.z + cos(heading) * speed * dt
+        // Retain lateral momentum briefly during fast turns, then recover grip.
+        val slipFactor = ((speed - 18f) / 17f).coerceIn(0f, 1f) * abs(steering)
+        val grip = 9f - 5f * slipFactor
+        val lateralSpeed = (state.lateralSpeedMps - speed * sin(deltaHeading)) * exp(-grip * dt)
+        var nextX = state.x + (sin(heading) * speed + cos(heading) * lateralSpeed) * dt
+        var nextZ = state.z + (cos(heading) * speed - sin(heading) * lateralSpeed) * dt
+
+        // Resolve vehicle contact before the guardrail so a rival cannot push us outside.
+        if (opponentX != null && opponentZ != null) {
+            val dx = nextX - opponentX
+            val dz = nextZ - opponentZ
+            val distance = hypot(dx, dz)
+            val minSeparation = 2.65f
+            if (distance < minSeparation) {
+                val contactX = if (distance > 0.001f) dx / distance else -sin(heading)
+                val contactZ = if (distance > 0.001f) dz / distance else -cos(heading)
+                val push = (minSeparation - distance) * 0.55f
+                nextX += contactX * push
+                nextZ += contactZ * push
+                val approach = (-sign(speed) * (sin(heading) * contactX + cos(heading) * contactZ))
+                    .coerceIn(0f, 1f)
+                speed *= exp(-5f * approach * dt)
+            }
+        }
 
         // 4. Track barrier collision & sliding response
         var hitWall = false
@@ -138,27 +157,17 @@ class ArcadeCarPhysics {
             val scrapeDamping = (1f - 1.8f * dt).coerceIn(0.85f, 0.99f)
             speed *= scrapeDamping
             val trackHeading = atan2(query.tangentX, query.tangentZ)
-            val angleDiff = normalizeAngle(trackHeading - heading)
+            val oppositeHeading = normalizeAngle(trackHeading + Math.PI.toFloat())
+            val alignedHeading = if (abs(normalizeAngle(trackHeading - heading)) <= Math.PI / 2) {
+                trackHeading
+            } else {
+                oppositeHeading
+            }
+            val angleDiff = normalizeAngle(alignedHeading - heading)
             heading = normalizeAngle(heading + angleDiff * (5.5f * dt).coerceAtMost(0.35f))
         }
 
-        // 5. Simple elastic car-to-car collision separation
-        if (opponentX != null && opponentZ != null) {
-            val dx = nextX - opponentX
-            val dz = nextZ - opponentZ
-            val dist = hypot(dx, dz)
-            val minSeparation = 2.65f
-            if (dist in 0.001f..minSeparation) {
-                val push = (minSeparation - dist) * 0.55f
-                nextX += (dx / dist) * push
-                nextZ += (dz / dist) * push
-                speed *= 0.92f
-            }
-        }
-
-        // 6. Visual wheel animation
-        val targetWheelSteer = -steerInput * 26f
-        val smoothSteerDeg = state.steerAngleDeg + (targetWheelSteer - state.steerAngleDeg) * (12f * dt).coerceAtMost(1f)
+        // Animate wheels using the same steering angle used by physics.
         val wheelRadius = 0.36f
         val wheelSpinDeg = (state.wheelSpinDeg + (speed * dt / wheelRadius) * (180f / Math.PI.toFloat())) % 360f
 
@@ -204,7 +213,8 @@ class ArcadeCarPhysics {
             completedLaps = completedLaps,
             nextCheckpoint = nextCheckpoint,
             finished = finished,
-            collidedWithWall = hitWall
+            collidedWithWall = hitWall,
+            lateralSpeedMps = if (hitWall) 0f else lateralSpeed
         )
         return updated to checkpointEvent
     }

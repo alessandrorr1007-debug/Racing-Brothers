@@ -60,6 +60,28 @@ class RacingPhysicsAndCameraTest {
     }
 
     @Test
+    fun `brake brings low forward speed to zero before engaging reverse`() {
+        val physics = ArcadeCarPhysics()
+        val moving = physics.createStartingState(0).copy(speedMps = 0.1f)
+        val brake = RacingInputState(brake = 1f)
+        val stopped = physics.step(moving, brake, 1f / 60f, canDrive = true).first
+        assertEquals(0f, stopped.speedMps, 0.001f)
+        val reversing = physics.step(stopped, brake, 1f / 60f, canDrive = true).first
+        assertTrue(reversing.speedMps < 0f)
+    }
+
+    @Test
+    fun `overlapping cars separate even when their positions match`() {
+        val physics = ArcadeCarPhysics()
+        val stopped = physics.createStartingState(0)
+        val separated = physics.step(
+            stopped, RacingInputState(), 1f / 60f, canDrive = true,
+            opponentX = stopped.x, opponentZ = stopped.z
+        ).first
+        assertTrue(kotlin.math.hypot(separated.x - stopped.x, separated.z - stopped.z) > 1f)
+    }
+
+    @Test
     fun `barrier collision keeps car within circuit bounds while allowing arcade wall slide`() {
         val physics = ArcadeCarPhysics()
         val start = CircuitTrack.samples.first()
