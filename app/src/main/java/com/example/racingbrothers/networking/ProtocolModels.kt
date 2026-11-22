@@ -200,6 +200,12 @@ object ProtocolCodec {
         put("trackId", trackId)
     }.toString()
 
+    fun encodeKickPlayer(playerId: String): String = JSONObject().apply {
+        put("v", ProtocolConstants.PROTOCOL_VERSION)
+        put("type", "kick_player")
+        put("playerId", playerId)
+    }.toString()
+
     fun encodePlayerState(
         seq: Long,
         x: Float,

@@ -50,6 +50,7 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             preferencesRepository.preferencesFlow.collect { prefs ->
                 soundManager.enabled = prefs.soundEnabled
+                soundManager.volume = prefs.effectsVolume
                 sessionManager.updateServerConfig(prefs.serverBaseUrl)
                 sessionManager.refreshServerHealth()
             }
@@ -178,6 +179,16 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
 
     fun startRace(circuit: CircuitId = CircuitId.SPEEDWAY) {
         sessionManager.startRace(circuit)
+    }
+
+    fun kickPlayer(playerId: String) = sessionManager.kickPlayer(playerId)
+
+    fun savePreferredCircuit(circuit: CircuitId) {
+        viewModelScope.launch { preferencesRepository.savePreferredCircuit(circuit) }
+    }
+
+    fun saveFeedback(volume: Int, vibrationEnabled: Boolean) {
+        viewModelScope.launch { preferencesRepository.saveFeedback(volume, vibrationEnabled) }
     }
 
     fun leaveRoom() {

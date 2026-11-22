@@ -407,6 +407,17 @@ for (const maxPlayers of [3, 4]) {
     const overflow = await connectClient(env, roomCode);
     sendMsg(overflow, "join_room", { roomCode });
     assert.equal(lastMsgOfType(overflow, "error")?.code, "ROOM_FULL");
+    const guest = clients.at(-1);
+    const guestId = lastMsgOfType(guest, "room_joined").playerId;
+    sendMsg(guest, "kick_player", { playerId: lastMsgOfType(host, "room_created").playerId });
+    assert.equal(lastMsgOfType(guest, "error")?.code, "HOST_ONLY");
+    sendMsg(host, "kick_player", { playerId: guestId });
+    assert.equal(guest.closedReason, "PLAYER_REMOVED");
+    assert.equal(lastMsgOfType(host, "room_state")?.players.length, maxPlayers - 1);
+    const replacement = await connectClient(env, roomCode);
+    sendMsg(replacement, "join_room", { roomCode });
+    assert.equal(lastMsgOfType(replacement, "room_joined")?.slot, maxPlayers - 1);
+    clients[clients.length - 1] = replacement;
     for (const client of clients) sendMsg(client, "set_ready", { ready: true });
     const requestedTrack = maxPlayers === 3 ? "mountain" : "random";
     sendMsg(host, "start_race", { trackId: requestedTrack });

@@ -10,15 +10,22 @@ import android.media.ToneGenerator
 class ArcadeSoundManager {
     @Volatile
     var enabled: Boolean = true
+    @Volatile
+    var volume: Int = 65
 
     private var toneGenerator: ToneGenerator? = null
+    private var activeVolume = -1
 
+    @Synchronized
     private fun getToneGen(): ToneGenerator? {
-        if (!enabled) return null
+        val targetVolume = volume.coerceIn(0, 100)
+        if (!enabled || targetVolume == 0) return null
+        if (activeVolume != targetVolume) release()
         if (toneGenerator == null) {
             toneGenerator = runCatching {
-                ToneGenerator(AudioManager.STREAM_MUSIC, 65)
+                ToneGenerator(AudioManager.STREAM_MUSIC, targetVolume)
             }.getOrNull()
+            activeVolume = targetVolume
         }
         return toneGenerator
     }
@@ -41,6 +48,7 @@ class ArcadeSoundManager {
         runCatching { getToneGen()?.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 380) }
     }
 
+    @Synchronized
     fun release() {
         runCatching { toneGenerator?.release() }
         toneGenerator = null

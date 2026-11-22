@@ -198,6 +198,15 @@ fun RaceHudOverlay(
                 contentAlignment = Alignment.Center
             ) {
                 val countdownSize = minOf(maxWidth, maxHeight, 132.dp)
+                if (hudSnapshot.markers.isNotEmpty() && maxHeight >= 54.dp) {
+                    CircuitThumbnail(
+                        circuit = hudSnapshot.circuit,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 4.dp)
+                            .width(84.dp).height(if (compact) 52.dp else 76.dp)
+                            .clip(RoundedCornerShape(10.dp)).testTag("hud_minimap"),
+                        markers = hudSnapshot.markers
+                    )
+                }
                 androidx.compose.animation.AnimatedVisibility(
                     visible = showCountdown && countdown != null,
                     enter = fadeIn(),

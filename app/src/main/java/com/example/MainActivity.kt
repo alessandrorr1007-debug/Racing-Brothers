@@ -32,10 +32,16 @@ import com.example.racingbrothers.ui.screens.CreateRoomScreen
 import com.example.racingbrothers.ui.screens.JoinRoomScreen
 import com.example.racingbrothers.ui.screens.LobbyScreen
 import com.example.racingbrothers.ui.screens.MainMenuScreen
+import com.example.racingbrothers.ui.screens.OnlineMenuScreen
+import com.example.racingbrothers.ui.screens.CircuitsScreen
+import com.example.racingbrothers.ui.screens.CreditsScreen
 import com.example.ui.theme.RacingBrothersTheme
 
 object RacingRoutes {
     const val MAIN_MENU = "main_menu"
+    const val ONLINE = "online"
+    const val CIRCUITS = "circuits"
+    const val CREDITS = "credits"
     const val CREATE_ROOM = "create_room"
     const val JOIN_ROOM = "join_room"
     const val CAR_SELECTION = "car_selection"
@@ -76,14 +82,40 @@ fun RacingBrothersApp(
         startDestination = RacingRoutes.MAIN_MENU
     ) {
         composable(RacingRoutes.MAIN_MENU) {
-            var selectingCapacity by rememberSaveable { mutableStateOf(false) }
             MainMenuScreen(
                 preferences = prefs,
-                onCreateRoomClick = {
+                onSaveSettings = { sound, quality, cam, url ->
+                    viewModel.playClick()
+                    viewModel.saveSettings(sound, quality, cam, url)
+                },
+                onOpenOnline = { navController.navigate(RacingRoutes.ONLINE) },
+                onOpenGarage = { navController.navigate(RacingRoutes.CAR_SELECTION) },
+                onOpenCircuits = { navController.navigate(RacingRoutes.CIRCUITS) },
+                onOpenCredits = { navController.navigate(RacingRoutes.CREDITS) },
+                onSaveFeedback = viewModel::saveFeedback
+            )
+        }
+        composable(RacingRoutes.CIRCUITS) {
+            CircuitsScreen(
+                initialCircuit = prefs.preferredCircuit,
+                onConfirm = {
+                    viewModel.savePreferredCircuit(it)
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(RacingRoutes.CREDITS) {
+            CreditsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(RacingRoutes.ONLINE) {
+            var selectingCapacity by rememberSaveable { mutableStateOf(false) }
+            OnlineMenuScreen(
+                onCreate = {
                     viewModel.playClick()
                     selectingCapacity = true
                 },
-                onJoinRoomClick = {
+                onJoin = {
                     viewModel.playClick()
                     if (mpState.roomCode != null) {
                         viewModel.leaveRoom()
@@ -92,10 +124,7 @@ fun RacingBrothersApp(
                     }
                     navController.navigate(RacingRoutes.JOIN_ROOM)
                 },
-                onSaveSettings = { sound, quality, cam, url ->
-                    viewModel.playClick()
-                    viewModel.saveSettings(sound, quality, cam, url)
-                }
+                onBack = { navController.popBackStack() }
             )
             if (selectingCapacity) {
                 AlertDialog(
@@ -208,8 +237,12 @@ fun RacingBrothersApp(
                 onConfirmCharacter = { characterId ->
                     viewModel.playClick()
                     viewModel.confirmCharacterSelection(characterId)
-                    navController.navigate(RacingRoutes.LOBBY) {
-                        popUpTo(RacingRoutes.MAIN_MENU) { inclusive = false }
+                    if (mpState.roomCode != null) {
+                        navController.navigate(RacingRoutes.LOBBY) {
+                            popUpTo(RacingRoutes.MAIN_MENU) { inclusive = false }
+                        }
+                    } else {
+                        navController.popBackStack(RacingRoutes.MAIN_MENU, inclusive = false)
                     }
                 }
             )
@@ -218,6 +251,8 @@ fun RacingBrothersApp(
         composable(RacingRoutes.LOBBY) {
             LobbyScreen(
                 multiplayerState = mpState,
+                preferredCircuit = prefs.preferredCircuit,
+                onKickPlayer = viewModel::kickPlayer,
                 onEditSetup = {
                     viewModel.playClick()
                     navController.navigate(RacingRoutes.CAR_SELECTION)
@@ -240,7 +275,9 @@ fun RacingBrothersApp(
                         context = context,
                         graphicsQuality = prefs.graphicsQuality,
                         cameraMode = prefs.preferredCameraMode,
-                        soundEnabled = prefs.soundEnabled
+                        soundEnabled = prefs.soundEnabled,
+                        effectsVolume = prefs.effectsVolume,
+                        vibrationEnabled = prefs.vibrationEnabled
                     )
                     context.startActivity(intent)
                 }

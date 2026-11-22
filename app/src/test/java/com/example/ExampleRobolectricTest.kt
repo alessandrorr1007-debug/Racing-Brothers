@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
@@ -70,14 +71,18 @@ class ExampleRobolectricTest {
         pumpUi()
         composeTestRule.onNodeWithTag("logo_racing").assertIsDisplayed()
         composeTestRule.onNodeWithTag("logo_brothers").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("btn_create_room").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("btn_join_room").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("btn_play_online").assertIsDisplayed()
         composeTestRule.onNodeWithTag("server_status_badge").assertDoesNotExist()
         composeTestRule.onNodeWithText("Servidor listo", substring = true).assertDoesNotExist()
         composeTestRule.onNodeWithText("wss://", substring = true).assertDoesNotExist()
         composeTestRule.onNodeWithText("Jugar solo", ignoreCase = true).assertDoesNotExist()
 
-        composeTestRule.onNodeWithTag("btn_open_settings").performClick()
+        composeTestRule.mainClock.autoAdvance = true
+        try {
+            composeTestRule.onNodeWithTag("btn_open_settings").performScrollTo().performClick()
+        } finally {
+            composeTestRule.mainClock.autoAdvance = false
+        }
         waitUntilDisplayed("settings_dialog")
         composeTestRule.onNodeWithTag("btn_settings_save").assertIsDisplayed()
         composeTestRule.onNodeWithTag("input_server_url").assertDoesNotExist()
@@ -85,9 +90,26 @@ class ExampleRobolectricTest {
     }
 
     @Test
+    fun `main menu opens circuits, credits and garage without creating a room`() {
+        composeTestRule.onNodeWithTag("btn_open_circuits").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("circuit_mountain").performClick()
+        composeTestRule.onNodeWithTag("btn_confirm_circuit").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("btn_open_credits").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("alessandrorr1007-debug").assertIsDisplayed()
+        composeTestRule.onNodeWithText("VOLVER", ignoreCase = true).performClick()
+        composeTestRule.onNodeWithTag("btn_open_garage").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("car_3d_preview").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("btn_customize_car").performScrollTo().performClick()
+        composeTestRule.onNodeWithTag("btn_save_appearance").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("lobby_room_code").assertDoesNotExist()
+    }
+
+    @Test
     fun `join room screen filters letters and symbols, preserves leading zeros, and enables join only at 6 digits`() {
         MultiplayerSessionManager.instance.setTransportForTesting(SingleRoomUiTestTransport(roomCode = "004821"))
         pumpUi()
+        composeTestRule.onNodeWithTag("btn_play_online").performClick()
+        waitUntilDisplayed("btn_join_room")
         composeTestRule.onNodeWithTag("btn_join_room").performClick()
         waitUntilDisplayed("input_join_room_code")
 
@@ -124,6 +146,8 @@ class ExampleRobolectricTest {
         pumpUi()
 
         // 1. Create Room -> displays generated 6-digit numeric code preserving leading zeros
+        composeTestRule.onNodeWithTag("btn_play_online").performClick()
+        waitUntilDisplayed("btn_create_room")
         composeTestRule.onNodeWithTag("btn_create_room").performClick()
         waitUntilDisplayed("room_capacity_2")
         composeTestRule.onNodeWithTag("room_capacity_2").performClick()

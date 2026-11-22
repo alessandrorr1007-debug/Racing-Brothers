@@ -17,6 +17,8 @@ data class TrackPoint(
     val cumulativeDist: Float
 )
 
+data class TrackMarker(val x: Float, val z: Float, val local: Boolean)
+
 data class TrackCheckpoint(
     val index: Int,
     val x: Float,

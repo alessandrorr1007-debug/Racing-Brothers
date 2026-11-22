@@ -3,6 +3,7 @@ package com.example.racingbrothers.game
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.HapticFeedbackConstants
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
@@ -19,6 +20,8 @@ import com.example.racingbrothers.audio.ArcadeSoundManager
 import com.example.racingbrothers.camera.CameraMode
 import com.example.racingbrothers.controls.RacingInputState
 import com.example.racingbrothers.networking.MultiplayerSessionManager
+import com.example.racingbrothers.networking.RoomPhase
+import androidx.compose.runtime.LaunchedEffect
 import com.example.racingbrothers.storage.GraphicsQuality
 import com.example.racingbrothers.storage.PreferencesRepository
 import com.example.racingbrothers.ui.screens.RaceHudOverlay
@@ -50,6 +53,7 @@ class RaceActivity : FragmentActivity(), AndroidFragmentApplication.Callbacks, R
 
     @Volatile
     private var nitroPressed = false
+    private var vibrationEnabled = false
 
     private var graphicsQuality: GraphicsQuality = GraphicsQuality.HIGH
     private var initialCameraMode: CameraMode = CameraMode.CLOSE_CHASE
@@ -66,6 +70,8 @@ class RaceActivity : FragmentActivity(), AndroidFragmentApplication.Callbacks, R
             intent.getStringExtra(EXTRA_CAMERA_MODE) ?: CameraMode.CLOSE_CHASE.id
         )
         soundManager.enabled = intent.getBooleanExtra(EXTRA_SOUND_ENABLED, true)
+        soundManager.volume = intent.getIntExtra(EXTRA_EFFECTS_VOLUME, 65)
+        vibrationEnabled = intent.getBooleanExtra(EXTRA_VIBRATION_ENABLED, false)
 
         val root = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -93,14 +99,23 @@ class RaceActivity : FragmentActivity(), AndroidFragmentApplication.Callbacks, R
                 RacingBrothersTheme {
                     val sessionState by MultiplayerSessionManager.instance.state.collectAsStateWithLifecycle()
                     val hud by hudState.collectAsStateWithLifecycle()
+                    LaunchedEffect(sessionState.phase, sessionState.roomClosedReason) {
+                        if (sessionState.phase == RoomPhase.LOBBY || sessionState.roomClosedReason != null) finish()
+                    }
                     RaceHudOverlay(
                         sessionState = sessionState,
                         hudSnapshot = hud,
                         onSteerLeftChanged = { steerLeft = it },
                         onSteerRightChanged = { steerRight = it },
                         onThrottleChanged = { throttlePressed = it },
-                        onBrakeChanged = { brakePressed = it },
-                        onNitroChanged = { nitroPressed = it },
+                        onBrakeChanged = {
+                            brakePressed = it
+                            if (it && vibrationEnabled) window.decorView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        },
+                        onNitroChanged = {
+                            nitroPressed = it
+                            if (it && vibrationEnabled) window.decorView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        },
                         onToggleCamera = {
                             gdxFragment?.gameInstance?.let { game ->
                                 game.requestCameraToggle()
@@ -180,16 +195,22 @@ class RaceActivity : FragmentActivity(), AndroidFragmentApplication.Callbacks, R
         private const val EXTRA_GRAPHICS_QUALITY = "extra_graphics_quality"
         private const val EXTRA_CAMERA_MODE = "extra_camera_mode"
         private const val EXTRA_SOUND_ENABLED = "extra_sound_enabled"
+        private const val EXTRA_EFFECTS_VOLUME = "extra_effects_volume"
+        private const val EXTRA_VIBRATION_ENABLED = "extra_vibration_enabled"
 
         fun createIntent(
             context: Context,
             graphicsQuality: GraphicsQuality,
             cameraMode: CameraMode,
-            soundEnabled: Boolean
+            soundEnabled: Boolean,
+            effectsVolume: Int = 65,
+            vibrationEnabled: Boolean = false
         ): Intent = Intent(context, RaceActivity::class.java).apply {
             putExtra(EXTRA_GRAPHICS_QUALITY, graphicsQuality.id)
             putExtra(EXTRA_CAMERA_MODE, cameraMode.id)
             putExtra(EXTRA_SOUND_ENABLED, soundEnabled)
+            putExtra(EXTRA_EFFECTS_VOLUME, effectsVolume)
+            putExtra(EXTRA_VIBRATION_ENABLED, vibrationEnabled)
         }
     }
 }

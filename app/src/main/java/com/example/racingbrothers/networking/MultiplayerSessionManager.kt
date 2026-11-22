@@ -55,7 +55,8 @@ data class MultiplayerUiState(
     val rematchVotes: Int = 0,
     val roomCapacity: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY,
     val circuit: CircuitId = CircuitId.SPEEDWAY,
-    val supportsCircuitSelection: Boolean = false
+    val supportsCircuitSelection: Boolean = false,
+    val supportsHostControls: Boolean = false
 ) {
     val localPlayer: PlayerSlotState?
         get() = players.firstOrNull { it.playerId == localPlayerId }
@@ -526,7 +527,8 @@ class MultiplayerSessionManager(
                         roomCapacity = json.optInt("maxPlayers", ProtocolConstants.DEFAULT_ROOM_CAPACITY)
                             .coerceIn(ProtocolConstants.DEFAULT_ROOM_CAPACITY, ProtocolConstants.MAX_PLAYERS_PER_ROOM),
                         circuit = CircuitId.fromWire(json.optString("trackId")),
-                        supportsCircuitSelection = json.has("trackId")
+                        supportsCircuitSelection = json.has("trackId"),
+                        supportsHostControls = json.optBoolean("hostControls")
                     )
                 }
             }
@@ -710,6 +712,15 @@ class MultiplayerSessionManager(
         if (!state.canHostStartRace) return
         val selection = if (state.supportsCircuitSelection) circuit else CircuitId.SPEEDWAY
         activeConnection?.send(ProtocolCodec.encodeStartRace(selection.wireId))
+    }
+
+    fun kickPlayer(playerId: String) {
+        val state = _state.value
+        if (state.isHost && state.supportsHostControls && state.phase == RoomPhase.LOBBY &&
+            state.players.any { it.playerId == playerId && !it.isHost }
+        ) {
+            activeConnection?.send(ProtocolCodec.encodeKickPlayer(playerId))
+        }
     }
 
     fun sendTelemetry(

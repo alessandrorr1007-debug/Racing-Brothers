@@ -3,7 +3,7 @@
     <string name="app_name">Racing Brothers</string>
     <string name="brand_title_racing">RACING</string>
     <string name="brand_title_brothers">BROTHERS</string>
-    <string name="brand_subtitle">DUELO ARCADE 3D · 1 VS 1 ONLINE</string>
+    <string name="brand_subtitle">ARCADE 3D · 2–4 JUGADORES ONLINE</string>
 
     <!-- Main Menu -->
     <string name="btn_create_room">CREAR SALA</string>
@@ -18,6 +18,9 @@
 
     <!-- Settings -->
     <string name="settings_title">AJUSTES</string>
+    <string name="settings_effects_volume">Volumen de efectos · %1$d%%</string>
+    <string name="settings_vibration">Vibración de los controles</string>
+    <string name="settings_touch_controls">Controles · Botones táctiles</string>
     <string name="settings_sound_label">Efectos de sonido</string>
     <string name="settings_graphics_label">Calidad gráfica 3D</string>
     <string name="settings_graphics_high">Alta (60 FPS)</string>
@@ -38,12 +41,12 @@
     <string name="btn_retry_connection">REINTENTAR</string>
     <string name="btn_leave_room">SALIR DE LA SALA</string>
     <string name="btn_back">VOLVER</string>
-    <string name="share_room_message">¡Únete a mi carrera 1 vs 1 en Racing Brothers! Código de sala: %1$s</string>
+    <string name="share_room_message">¡Únete a mi carrera en Racing Brothers! Código de sala: %1$s</string>
     <string name="code_copied_toast">Código copiado</string>
     <string name="error_invalid_code">El código debe tener exactamente 6 dígitos numéricos (0-9).</string>
 
     <!-- Car & Character Selection -->
-    <string name="car_selection_title">SELECCIÓN DE AUTOMÓVIL</string>
+    <string name="car_selection_title">GARAJE</string>
     <string name="car_balanced_note">V1: Rendimiento idéntico en todos los autos</string>
     <string name="car_drag_hint">Arrastra para girar 360°</string>
     <string name="car_color_label">COLOR DE CARROCERÍA</string>
@@ -54,7 +57,11 @@
     <string name="btn_confirm_character">CONFIRMAR PILOTO</string>
 
     <!-- Lobby -->
-    <string name="lobby_title">LOBBY 1 VS 1</string>
+    <string name="lobby_title">Sala online</string>
+    <string name="manage_room">Administrar sala</string>
+    <string name="close_room">Cerrar sala</string>
+    <string name="kick_player">Expulsar jugador</string>
+    <string name="room_connected_count">Jugadores conectados (%1$d/%2$d)</string>
     <string name="player_1_label">JUGADOR 1 · ANFITRIÓN</string>
     <string name="player_2_label">JUGADOR 2 · INVITADO</string>
     <string name="waiting_opponent">Esperando al segundo jugador…</string>
@@ -89,7 +96,19 @@
     <string name="track_mountain">Montaña</string>
     <string name="track_night_city">Ciudad Nocturna</string>
     <string name="track_random">Aleatorio</string>
+    <string name="play_online">Jugar Online</string>
+    <string name="menu_garage">Garaje</string>
+    <string name="menu_circuits">Circuitos</string>
+    <string name="menu_credits">Créditos</string>
+    <string name="online_create_detail">Crea una sala privada para 2, 3 o 4 jugadores.</string>
+    <string name="online_join_detail">Ingresa el código de seis dígitos que te compartieron.</string>
+    <string name="circuit_host_notice">El anfitrión confirma el circuito de la sala.</string>
+    <string name="confirm_circuit">Confirmar circuito</string>
+    <string name="credits_project">Racing Brothers</string>
+    <string name="credits_technologies">Kotlin · Jetpack Compose · libGDX · Cloudflare Workers y Durable Objects</string>
+    <string name="credits_licenses">Kotlin, Jetpack Compose y libGDX · Apache License 2.0\nOrbitron, Exo 2 y JetBrains Mono · SIL Open Font License 1.1</string>
     <string name="car_customize">Personalizar</string>
+    <string name="car_performance">%1$d km/h · %2$d m/s² de aceleración base</string>
     <string name="car_save_style">Guardar</string>
     <string name="car_rims">Llantas</string>
     <string name="car_spoiler">Alerón</string>

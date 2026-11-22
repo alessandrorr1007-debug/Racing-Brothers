@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.example.BuildConfig
 import com.example.racingbrothers.camera.CameraMode
 import com.example.racingbrothers.characters.CharacterCatalog
+import com.example.racingbrothers.tracks.CircuitId
 import com.example.racingbrothers.vehicles.VehicleCatalog
 import com.example.racingbrothers.vehicles.VehicleAppearance
 import kotlinx.coroutines.flow.Flow
@@ -21,8 +22,9 @@ private val Context.racingPrefsDataStore: DataStore<Preferences> by preferencesD
 )
 
 enum class GraphicsQuality(val id: String, val label: String) {
-    HIGH("high", "Alta (60 FPS)"),
-    LOW("low", "Reducida (Ahorro)");
+    HIGH("high", "Alta"),
+    MEDIUM("medium", "Media"),
+    LOW("low", "Baja");
 
     companion object {
         fun fromId(id: String?): GraphicsQuality = entries.firstOrNull { it.id == id } ?: HIGH
@@ -37,7 +39,10 @@ data class UserPreferences(
     val graphicsQuality: GraphicsQuality = GraphicsQuality.HIGH,
     val preferredCameraMode: CameraMode = CameraMode.CLOSE_CHASE,
     val serverBaseUrl: String = BuildConfig.DEFAULT_SERVER_URL,
-    val appearance: VehicleAppearance = VehicleAppearance()
+    val appearance: VehicleAppearance = VehicleAppearance(),
+    val preferredCircuit: CircuitId = CircuitId.SPEEDWAY,
+    val effectsVolume: Int = 65,
+    val vibrationEnabled: Boolean = false
 ) {
     val isServerConfigured: Boolean
         get() = serverBaseUrl.trim().isNotEmpty()
@@ -62,6 +67,9 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
         val RIMS = intPreferencesKey("vehicle_rims")
         val SPOILER = intPreferencesKey("vehicle_spoiler")
         val DECALS = intPreferencesKey("vehicle_decals")
+        val CIRCUIT = stringPreferencesKey("preferred_circuit")
+        val EFFECTS_VOLUME = intPreferencesKey("effects_volume")
+        val VIBRATION = booleanPreferencesKey("vibration")
     }
 
     val preferencesFlow: Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -73,7 +81,10 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
             graphicsQuality = GraphicsQuality.fromId(prefs[Keys.GRAPHICS_QUALITY]),
             preferredCameraMode = CameraMode.fromId(prefs[Keys.CAMERA_MODE] ?: CameraMode.CLOSE_CHASE.id),
             serverBaseUrl = prefs[Keys.SERVER_BASE_URL]?.takeIf { it.isNotBlank() } ?: BuildConfig.DEFAULT_SERVER_URL,
-            appearance = VehicleAppearance(prefs[Keys.RIMS] ?: 0, prefs[Keys.SPOILER] ?: 0, prefs[Keys.DECALS] ?: 0)
+            appearance = VehicleAppearance(prefs[Keys.RIMS] ?: 0, prefs[Keys.SPOILER] ?: 0, prefs[Keys.DECALS] ?: 0),
+            preferredCircuit = CircuitId.fromWire(prefs[Keys.CIRCUIT].orEmpty()),
+            effectsVolume = (prefs[Keys.EFFECTS_VOLUME] ?: 65).coerceIn(0, 100),
+            vibrationEnabled = prefs[Keys.VIBRATION] ?: false
         )
     }
 
@@ -92,6 +103,17 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
     suspend fun saveCharacterSelection(characterId: String) {
         dataStore.edit { prefs ->
             prefs[Keys.CHARACTER_ID] = characterId
+        }
+    }
+
+    suspend fun savePreferredCircuit(circuit: CircuitId) {
+        dataStore.edit { it[Keys.CIRCUIT] = circuit.wireId }
+    }
+
+    suspend fun saveFeedback(effectsVolume: Int, vibrationEnabled: Boolean) {
+        dataStore.edit {
+            it[Keys.EFFECTS_VOLUME] = effectsVolume.coerceIn(0, 100)
+            it[Keys.VIBRATION] = vibrationEnabled
         }
     }
 

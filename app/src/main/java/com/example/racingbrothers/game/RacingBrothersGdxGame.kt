@@ -28,6 +28,7 @@ import com.example.racingbrothers.networking.ProtocolConstants
 import com.example.racingbrothers.storage.GraphicsQuality
 import com.example.racingbrothers.tracks.CircuitTrack
 import com.example.racingbrothers.tracks.CircuitId
+import com.example.racingbrothers.tracks.TrackMarker
 import com.example.racingbrothers.vehicles.BalancedV1Stats
 import com.example.racingbrothers.vehicles.VehicleCatalog
 import com.example.racingbrothers.vehicles.VehicleAppearance
@@ -45,7 +46,9 @@ data class RaceHudSnapshot(
     val fps: Int = 60,
     val nitroCharge: Float = 1f,
     val nitroActive: Boolean = false,
-    val playerCount: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY
+    val playerCount: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY,
+    val circuit: CircuitId = CircuitId.SPEEDWAY,
+    val markers: List<TrackMarker> = emptyList()
 )
 
 /**
@@ -365,7 +368,15 @@ class RacingBrothersGdxGame(
                     fps = Gdx.graphics.framesPerSecond,
                     nitroCharge = localState.nitroCharge,
                     nitroActive = localState.nitroActive,
-                    playerCount = session.roomCapacity
+                    playerCount = session.roomCapacity,
+                    circuit = track.id,
+                    markers = buildList {
+                        add(TrackMarker(localState.x, localState.z, local = true))
+                        for (player in session.players) {
+                            val rival = rivals[player.playerId] ?: continue
+                            if (player.connected) add(TrackMarker(rival.x, rival.z, local = false))
+                        }
+                    }
                 )
             )
         }

@@ -58,6 +58,7 @@ import com.example.R
 import com.example.racingbrothers.ui.components.Vehicle3DPreview
 import com.example.racingbrothers.vehicles.VehicleCatalog
 import com.example.racingbrothers.vehicles.VehicleAppearance
+import com.example.racingbrothers.vehicles.BalancedV1Stats
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.IceWhite
 import com.example.ui.theme.JetBrainsMonoFontFamily
@@ -224,6 +225,15 @@ fun CarSelectionScreen(
                     text = currentVehicle.description,
                     style = MaterialTheme.typography.bodyMedium,
                     color = SilverMist
+                )
+                Text(
+                    text = stringResource(
+                        R.string.car_performance,
+                        (BalancedV1Stats.MAX_SPEED_MPS * 3.6f).toInt(),
+                        BalancedV1Stats.ACCELERATION_MPS2.toInt()
+                    ),
+                    color = ElectricBlue,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         },

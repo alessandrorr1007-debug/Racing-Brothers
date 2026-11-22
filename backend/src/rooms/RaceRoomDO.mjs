@@ -297,6 +297,9 @@ export class RaceRoomDO {
       case "set_ready":
         this.onSetReady(ws, meta, msg);
         break;
+      case "kick_player":
+        this.onKickPlayer(ws, meta, msg);
+        break;
       case "start_race":
         this.onStartRace(ws, meta, msg);
         break;
@@ -412,6 +415,7 @@ export class RaceRoomDO {
       phase: this.phase,
       maxPlayers: this.maxPlayers,
       trackId: this.trackId,
+      hostControls: true,
       players: playersList
     });
 
@@ -475,6 +479,7 @@ export class RaceRoomDO {
       phase: this.phase,
       maxPlayers: this.maxPlayers,
       trackId: this.trackId,
+      hostControls: true,
       players: playersList
     });
 
@@ -523,6 +528,31 @@ export class RaceRoomDO {
     if (this.phase !== "LOBBY") return;
 
     player.ready = Boolean(msg.ready);
+    this.broadcast("room_state", {
+      roomCode: this.roomCode,
+      phase: this.phase,
+      players: this.serializePlayers()
+    });
+  }
+
+  onKickPlayer(ws, meta, msg) {
+    const host = this.requirePlayer(ws, meta);
+    if (!host) return;
+    if (!host.isHost) {
+      this.sendTo(ws, "error", { code: "HOST_ONLY", message: "Solo el anfitrión administra la sala." });
+      return;
+    }
+    if (this.phase !== "LOBBY") return;
+    const guest = this.players.get(msg.playerId);
+    if (!guest || guest.isHost) return;
+    this.players.delete(guest.playerId);
+    clearTimeout(this.disconnectTimers.get(guest.playerId));
+    this.disconnectTimers.delete(guest.playerId);
+    if (guest.ws) {
+      this.sockets.delete(guest.ws);
+      this.sendTo(guest.ws, "room_closed", { reason: "El anfitrión te expulsó de la sala." });
+      try { guest.ws.close(4003, "PLAYER_REMOVED"); } catch {}
+    }
     this.broadcast("room_state", {
       roomCode: this.roomCode,
       phase: this.phase,

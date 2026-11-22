@@ -45,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -93,9 +94,14 @@ import com.example.ui.theme.VoidBlack
 @Composable
 fun MainMenuScreen(
     preferences: UserPreferences,
-    onCreateRoomClick: () -> Unit,
-    onJoinRoomClick: () -> Unit,
-    onSaveSettings: (Boolean, GraphicsQuality, CameraMode, String) -> Unit
+    onCreateRoomClick: () -> Unit = {},
+    onJoinRoomClick: () -> Unit = {},
+    onSaveSettings: (Boolean, GraphicsQuality, CameraMode, String) -> Unit,
+    onOpenOnline: (() -> Unit)? = null,
+    onOpenGarage: (() -> Unit)? = null,
+    onOpenCircuits: (() -> Unit)? = null,
+    onOpenCredits: (() -> Unit)? = null,
+    onSaveFeedback: (Int, Boolean) -> Unit = { _, _ -> }
 ) {
     var showSettingsDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -229,7 +235,7 @@ fun MainMenuScreen(
                 ) {
                     // Primary button: CREAR SALA
                     Button(
-                        onClick = onCreateRoomClick,
+                        onClick = onOpenOnline ?: onCreateRoomClick,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ElectricBlue,
                             contentColor = VoidBlack
@@ -239,7 +245,7 @@ fun MainMenuScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = if (panelHeight < 340.dp) 48.dp else 56.dp)
-                            .testTag("btn_create_room")
+                            .testTag(if (onOpenOnline == null) "btn_create_room" else "btn_play_online")
                     ) {
                         Icon(
                             imageVector = Icons.Filled.AddCircle,
@@ -248,7 +254,7 @@ fun MainMenuScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = stringResource(R.string.btn_create_room),
+                            text = stringResource(if (onOpenOnline == null) R.string.btn_create_room else R.string.play_online),
                             style = MaterialTheme.typography.labelLarge,
                             fontSize = if (compactText) 13.sp else 16.sp,
                             textAlign = TextAlign.Center
@@ -256,7 +262,7 @@ fun MainMenuScreen(
                     }
 
                     // Secondary button: UNIRSE A SALA
-                    OutlinedButton(
+                    if (onOpenOnline == null) OutlinedButton(
                         onClick = onJoinRoomClick,
                         border = BorderStroke(2.dp, ElectricBlue.copy(alpha = 0.85f)),
                         colors = ButtonDefaults.outlinedButtonColors(
@@ -284,6 +290,34 @@ fun MainMenuScreen(
                             textAlign = TextAlign.Center,
                             color = IceWhite
                         )
+                    }
+                    if (onOpenOnline != null) {
+                        for ((title, action) in listOf(
+                            R.string.menu_garage to onOpenGarage,
+                            R.string.menu_circuits to onOpenCircuits,
+                            R.string.btn_settings to { showSettingsDialog = true },
+                            R.string.menu_credits to onOpenCredits
+                        )) {
+                            if (action != null) {
+                                OutlinedButton(
+                                    onClick = action,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(
+                                        when (title) {
+                                            R.string.menu_garage -> "btn_open_garage"
+                                            R.string.menu_circuits -> "btn_open_circuits"
+                                            R.string.btn_settings -> "btn_open_settings"
+                                            else -> "btn_open_credits"
+                                        }
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, TrackBorderBlue),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = CockpitSlate.copy(alpha = 0.82f),
+                                        contentColor = IceWhite
+                                    )
+                                ) { Text(stringResource(title)) }
+                            }
+                        }
                     }
                 }
 
@@ -323,13 +357,14 @@ fun MainMenuScreen(
                     autoRotate = true,
                     interactiveDrag = true,
                     zoomScale = 1.08f,
+                    appearance = preferences.appearance,
                     modifier = Modifier
                         .fillMaxSize()
                         .testTag("menu_3d_car_preview")
                 )
 
                 // Discreet Settings button top-right
-                Surface(
+                if (onOpenOnline == null) Surface(
                     color = CockpitSlate.copy(alpha = 0.85f),
                     shape = CircleShape,
                     border = BorderStroke(1.5.dp, TrackBorderBlue),
@@ -425,8 +460,9 @@ fun MainMenuScreen(
         SettingsDialog(
             preferences = preferences,
             onDismiss = { showSettingsDialog = false },
-            onSave = { sound, quality, cam, url ->
+            onSave = { sound, quality, cam, url, volume, vibration ->
                 onSaveSettings(sound, quality, cam, url)
+                onSaveFeedback(volume, vibration)
                 showSettingsDialog = false
             }
         )
@@ -467,11 +503,13 @@ private fun SpeedLightStreaksOverlay(modifier: Modifier = Modifier) {
 private fun SettingsDialog(
     preferences: UserPreferences,
     onDismiss: () -> Unit,
-    onSave: (Boolean, GraphicsQuality, CameraMode, String) -> Unit
+    onSave: (Boolean, GraphicsQuality, CameraMode, String, Int, Boolean) -> Unit
 ) {
     var soundEnabled by rememberSaveable { mutableStateOf(preferences.soundEnabled) }
     var graphicsQuality by rememberSaveable { mutableStateOf(preferences.graphicsQuality) }
     var cameraMode by rememberSaveable { mutableStateOf(preferences.preferredCameraMode) }
+    var volume by rememberSaveable { mutableStateOf(preferences.effectsVolume.toFloat()) }
+    var vibration by rememberSaveable { mutableStateOf(preferences.vibrationEnabled) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -502,6 +540,23 @@ private fun SettingsDialog(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    Text(stringResource(R.string.settings_effects_volume, volume.toInt()), color = IceWhite)
+                    Slider(
+                        value = volume,
+                        onValueChange = { volume = it },
+                        valueRange = 0f..100f,
+                        enabled = soundEnabled,
+                        modifier = Modifier.testTag("settings_effects_volume")
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(stringResource(R.string.settings_vibration), color = IceWhite)
+                        Switch(checked = vibration, onCheckedChange = { vibration = it })
+                    }
+                    Text(stringResource(R.string.settings_touch_controls), color = SilverMist)
                     // Sound toggle
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -586,7 +641,7 @@ private fun SettingsDialog(
                         Text(stringResource(R.string.settings_close), color = SilverMist)
                     }
                     Button(
-                        onClick = { onSave(soundEnabled, graphicsQuality, cameraMode, preferences.serverBaseUrl) },
+                        onClick = { onSave(soundEnabled, graphicsQuality, cameraMode, preferences.serverBaseUrl, volume.toInt(), vibration) },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ElectricBlue,
                             contentColor = VoidBlack
