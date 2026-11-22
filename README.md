@@ -94,7 +94,23 @@ Si deseas cambiar el servidor desde la app:
 
 ---
 
-## Cómo Compilar y Generar el APK
+## Descargar el APK Automáticamente desde GitHub Actions
+
+Cada push a la rama `main` (o ejecución manual desde GitHub) ejecuta el workflow **Android Build** (`.github/workflows/android-build.yml`), corre las pruebas `:app:testDebugUnitTest`, compila `:app:assembleDebug`, verifica la firma e integridad del APK y publica el instalador por **30 días**.
+
+### Pasos para descargar el APK
+1. Abre el repositorio en GitHub: [alessandrorr1007-debug/Racing-Brothers](https://github.com/alessandrorr1007-debug/Racing-Brothers).
+2. Ve a **GitHub → Actions → Android Build → Última ejecución exitosa → Artifacts**.
+3. Haz clic en **`Racing-Brothers-Android-APK`** para descargar el archivo `.zip`.
+4. Descomprime el `.zip` para obtener `app-debug.apk` e instálalo en ambos celulares Android (habilitando *"Instalar apps desconocidas"* si Android lo solicita).
+
+### Ejecutar una compilación manual
+1. Ve a **GitHub → Actions → Android Build**.
+2. Pulsa **Run workflow**, selecciona la rama `main` y confirma con **Run workflow**.
+
+---
+
+## Cómo Compilar y Generar el APK Localmente
 
 Desde la raíz del proyecto:
 
