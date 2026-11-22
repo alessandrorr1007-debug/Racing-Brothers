@@ -19,6 +19,7 @@ import com.example.racingbrothers.tracks.PropKind
 import com.example.racingbrothers.vehicles.MeshBoxPart
 import com.example.racingbrothers.vehicles.PartColorRole
 import com.example.racingbrothers.vehicles.VehiclePaintColor
+import com.example.racingbrothers.vehicles.VehicleAppearance
 import com.example.racingbrothers.vehicles.VehicleSpec
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -120,14 +121,15 @@ object GdxMeshFactory {
     fun buildVehicleRig(
         vehicle: VehicleSpec,
         paint: VehiclePaintColor,
-        character: CharacterSpec
+        character: CharacterSpec,
+        appearance: VehicleAppearance = VehicleAppearance()
     ): GdxVehicleRig {
         val builder = ModelBuilder()
         val disposables = mutableListOf<Model>()
 
         // 1. Combined chassis/body model
         builder.begin()
-        val bodyParts = vehicle.parts.filter { !it.isWheel }
+        val bodyParts = appearance.applyTo(vehicle).filter { !it.isWheel }
         for (part in bodyParts) {
             val mat = Material(ColorAttribute.createDiffuse(partColor(part.role, paint)))
             val node = builder.node()
@@ -174,7 +176,7 @@ object GdxMeshFactory {
             val wheelModel = wheelModels.getOrPut(Triple(w.width, w.height, w.length)) {
                 builder.begin()
                 val tireMat = Material(ColorAttribute.createDiffuse(Color(0.08f, 0.09f, 0.11f, 1f)))
-                val rimMat = Material(ColorAttribute.createDiffuse(Color(0.74f, 0.82f, 0.92f, 1f)))
+                val rimMat = Material(ColorAttribute.createDiffuse(argbToGdxColor(appearance.rimArgb)))
                 val tireNode = builder.node()
                 tireNode.id = "${w.id}_tire"
                 val tirePart = builder.part("${w.id}_tire", GL20.GL_TRIANGLES, ATTRS, tireMat)

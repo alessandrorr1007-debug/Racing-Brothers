@@ -1,6 +1,7 @@
 package com.example.racingbrothers.networking
 
 import com.example.racingbrothers.tracks.CircuitId
+import com.example.racingbrothers.vehicles.VehicleAppearance
 
 import com.example.racingbrothers.characters.CharacterCatalog
 import com.example.racingbrothers.vehicles.VehicleCatalog
@@ -206,14 +207,24 @@ class MultiplayerSessionManager(
         _state.update { it.copy(serverHealth = ServerHealthStatus.OFFLINE) }
     }
 
-    fun updateLocalSetup(vehicleId: String, colorId: String, characterId: String) {
+    @Volatile
+    private var localAppearance = VehicleAppearance()
+
+    fun updateLocalSetup(
+        vehicleId: String, colorId: String, characterId: String, appearance: VehicleAppearance = localAppearance
+    ) {
         localVehicleId = vehicleId
         localColorId = colorId
         localCharacterId = characterId
+        localAppearance = appearance
         val conn = activeConnection
         if (conn != null && _state.value.connectionStatus == ConnectionStatus.CONNECTED) {
-            conn.send(ProtocolCodec.encodeUpdateSelection(vehicleId, colorId, characterId))
+            conn.send(ProtocolCodec.encodeUpdateSelection(vehicleId, colorId, characterId, appearance))
         }
+    }
+
+    fun updateLocalCharacter(characterId: String) {
+        updateLocalSetup(localVehicleId, localColorId, characterId, localAppearance)
     }
 
     fun clearError() {
@@ -222,11 +233,13 @@ class MultiplayerSessionManager(
 
     fun createRoom(
         vehicleId: String, colorId: String, characterId: String,
-        roomCapacity: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY
+        roomCapacity: Int = ProtocolConstants.DEFAULT_ROOM_CAPACITY,
+        appearance: VehicleAppearance = VehicleAppearance()
     ) {
         localVehicleId = vehicleId
         localColorId = colorId
         localCharacterId = characterId
+        localAppearance = appearance
 
         val validation = ServerEndpointParser.validate(_state.value.serverBaseUrl)
         when (validation) {
@@ -289,10 +302,14 @@ class MultiplayerSessionManager(
         }
     }
 
-    fun joinRoom(rawCode: String, vehicleId: String, colorId: String, characterId: String) {
+    fun joinRoom(
+        rawCode: String, vehicleId: String, colorId: String, characterId: String,
+        appearance: VehicleAppearance = VehicleAppearance()
+    ) {
         localVehicleId = vehicleId
         localColorId = colorId
         localCharacterId = characterId
+        localAppearance = appearance
 
         val code = RoomCodeValidator.normalize(rawCode)
         if (!RoomCodeValidator.isValid(code)) {
@@ -370,7 +387,8 @@ class MultiplayerSessionManager(
                             roomCode = roomCode,
                             vehicleId = localVehicleId,
                             colorId = localColorId,
-                            characterId = localCharacterId
+                            characterId = localCharacterId,
+                            appearance = localAppearance
                         )
                     }
                     connection.send(payload)

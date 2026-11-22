@@ -451,6 +451,7 @@ private fun LobbyPlayerCard(
                     vehicle = vehicle,
                     paintColor = color,
                     driver = character,
+                    appearance = player.appearance,
                     autoRotate = true,
                     interactiveDrag = false,
                     zoomScale = 1.05f,

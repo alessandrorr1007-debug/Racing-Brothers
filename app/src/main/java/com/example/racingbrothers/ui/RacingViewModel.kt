@@ -1,6 +1,7 @@
 package com.example.racingbrothers.ui
 
 import com.example.racingbrothers.tracks.CircuitId
+import com.example.racingbrothers.vehicles.VehicleAppearance
 
 import android.app.Application
 import android.content.Context
@@ -132,7 +133,8 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
             vehicleId = prefs.selectedVehicleId,
             colorId = prefs.selectedColorId,
             characterId = prefs.selectedCharacterId,
-            roomCapacity = roomCapacity
+            roomCapacity = roomCapacity,
+            appearance = prefs.appearance
         )
     }
 
@@ -142,7 +144,8 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
             rawCode = roomCode,
             vehicleId = prefs.selectedVehicleId,
             colorId = prefs.selectedColorId,
-            characterId = prefs.selectedCharacterId
+            characterId = prefs.selectedCharacterId,
+            appearance = prefs.appearance
         )
     }
 
@@ -154,12 +157,18 @@ class RacingViewModel(application: Application) : AndroidViewModel(application) 
         sessionManager.updateLocalSetup(vehicleId, colorId, charId)
     }
 
+    fun saveVehicleAppearance(vehicleId: String, colorId: String, appearance: VehicleAppearance) {
+        viewModelScope.launch {
+            preferencesRepository.saveVehicleSelection(vehicleId, colorId, appearance)
+        }
+        sessionManager.updateLocalSetup(vehicleId, colorId, preferences.value.selectedCharacterId, appearance)
+    }
+
     fun confirmCharacterSelection(characterId: String) {
-        val prefs = preferences.value
         viewModelScope.launch {
             preferencesRepository.saveCharacterSelection(characterId)
         }
-        sessionManager.updateLocalSetup(prefs.selectedVehicleId, prefs.selectedColorId, characterId)
+        sessionManager.updateLocalCharacter(characterId)
     }
 
     fun toggleReady() {

@@ -30,6 +30,7 @@ import com.example.racingbrothers.tracks.CircuitTrack
 import com.example.racingbrothers.tracks.CircuitId
 import com.example.racingbrothers.vehicles.BalancedV1Stats
 import com.example.racingbrothers.vehicles.VehicleCatalog
+import com.example.racingbrothers.vehicles.VehicleAppearance
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -159,7 +160,8 @@ class RacingBrothersGdxGame(
         localCarRig = GdxMeshFactory.buildVehicleRig(
             VehicleCatalog.getVehicle(local?.vehicleId ?: "vortex_rs"),
             VehicleCatalog.getPaintColor(local?.colorId ?: "electric_cobalt"),
-            CharacterCatalog.getCharacter(local?.characterId ?: "nico_turbo")
+            CharacterCatalog.getCharacter(local?.characterId ?: "nico_turbo"),
+            local?.appearance ?: VehicleAppearance()
         )
         for (player in session.players) {
             if (player.playerId == session.localPlayerId) continue
@@ -167,7 +169,8 @@ class RacingBrothersGdxGame(
             val rig = GdxMeshFactory.buildVehicleRig(
                 VehicleCatalog.getVehicle(player.vehicleId),
                 VehicleCatalog.getPaintColor(player.colorId),
-                CharacterCatalog.getCharacter(player.characterId)
+                CharacterCatalog.getCharacter(player.characterId),
+                player.appearance
             )
             rivals[player.playerId] = RivalCar(rig, x, z, heading)
         }

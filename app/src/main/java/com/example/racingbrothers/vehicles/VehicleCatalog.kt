@@ -37,6 +37,47 @@ data class VehiclePaintColor(
     val argb: Long
 )
 
+data class VehicleAppearance(
+    val rims: Int = 0,
+    val spoiler: Int = 0,
+    val decals: Int = 0
+) {
+    val rimArgb: Long
+        get() = when (rims) {
+            1 -> 0xFFFFB74D
+            2 -> 0xFF586876
+            else -> 0xFFBCCFE8
+        }
+
+    fun applyTo(vehicle: VehicleSpec): List<MeshBoxPart> {
+        val rearWingIds = setOf("roof_spoiler", "gt_wing", "wing_strut_l", "wing_strut_r",
+            "ducktail", "rear_wing", "endplate_l", "endplate_r")
+        return buildList {
+            addAll(vehicle.parts.filterNot { spoiler != 0 && it.id in rearWingIds })
+            if (spoiler == 2) {
+                val rear = vehicle.parts.filter { it.isWheel }.minOf { it.centerZ } - 0.65f
+                for (side in listOf(-1f, 1f)) {
+                    add(MeshBoxPart("sport_wing_post_$side", side * 0.48f, 0.88f, rear,
+                        0.09f, 0.55f, 0.13f, PartColorRole.SECONDARY_TRIM))
+                }
+                add(MeshBoxPart("sport_wing", 0f, 1.15f, rear,
+                    1.96f, 0.11f, 0.39f, PartColorRole.PRIMARY_PAINT, pitchDeg = -9f))
+            }
+            if (decals != 0) {
+                val hood = vehicle.parts.firstOrNull { it.id in setOf("hood", "long_hood", "front_nose", "nose_cone") }
+                if (hood != null) {
+                    for (side in listOf(-1f, 1f)) {
+                        add(MeshBoxPart("stripe_$side", side * 0.16f, hood.centerY + hood.height / 2f + 0.015f,
+                            hood.centerZ, 0.16f, 0.018f, hood.length * hood.topLengthScale * 0.9f,
+                            if (decals == 1) PartColorRole.HEADLIGHT else PartColorRole.SECONDARY_TRIM,
+                            pitchDeg = hood.pitchDeg))
+                    }
+                }
+            }
+        }
+    }
+}
+
 data class VehicleSpec(
     val id: String,
     val displayName: String,

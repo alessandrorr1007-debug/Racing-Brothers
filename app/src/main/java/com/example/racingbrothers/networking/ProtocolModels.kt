@@ -1,5 +1,7 @@
 package com.example.racingbrothers.networking
 
+import com.example.racingbrothers.vehicles.VehicleAppearance
+
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -104,7 +106,8 @@ data class PlayerSlotState(
     val colorId: String,
     val characterId: String,
     val ready: Boolean,
-    val rematchRequested: Boolean = false
+    val rematchRequested: Boolean = false,
+    val appearance: VehicleAppearance = VehicleAppearance()
 )
 
 data class RemoteCarTelemetry(
@@ -148,7 +151,8 @@ object ProtocolCodec {
         roomCode: String,
         vehicleId: String,
         colorId: String,
-        characterId: String
+        characterId: String,
+        appearance: VehicleAppearance = VehicleAppearance()
     ): String = JSONObject().apply {
         put("v", ProtocolConstants.PROTOCOL_VERSION)
         put("type", "join_room")
@@ -156,6 +160,7 @@ object ProtocolCodec {
         put("vehicleId", vehicleId)
         put("colorId", colorId)
         put("characterId", characterId)
+        putAppearance(appearance)
     }.toString()
 
     fun encodeReconnect(roomCode: String, sessionToken: String): String = JSONObject().apply {
@@ -165,14 +170,23 @@ object ProtocolCodec {
         put("sessionToken", sessionToken)
     }.toString()
 
-    fun encodeUpdateSelection(vehicleId: String, colorId: String, characterId: String): String =
+    fun encodeUpdateSelection(
+        vehicleId: String, colorId: String, characterId: String, appearance: VehicleAppearance = VehicleAppearance()
+    ): String =
         JSONObject().apply {
             put("v", ProtocolConstants.PROTOCOL_VERSION)
             put("type", "update_selection")
             put("vehicleId", vehicleId)
             put("colorId", colorId)
             put("characterId", characterId)
+            putAppearance(appearance)
         }.toString()
+
+    private fun JSONObject.putAppearance(appearance: VehicleAppearance) {
+        put("rims", appearance.rims)
+        put("spoiler", appearance.spoiler)
+        put("decals", appearance.decals)
+    }
 
     fun encodeSetReady(ready: Boolean): String = JSONObject().apply {
         put("v", ProtocolConstants.PROTOCOL_VERSION)
@@ -255,7 +269,12 @@ object ProtocolCodec {
                     colorId = obj.optString("colorId", "electric_cobalt"),
                     characterId = obj.optString("characterId", "nico_turbo"),
                     ready = obj.optBoolean("ready", false),
-                    rematchRequested = obj.optBoolean("rematchRequested", false)
+                    rematchRequested = obj.optBoolean("rematchRequested", false),
+                    appearance = VehicleAppearance(
+                        obj.optInt("rims", 0).coerceIn(0, 2),
+                        obj.optInt("spoiler", 0).coerceIn(0, 2),
+                        obj.optInt("decals", 0).coerceIn(0, 2)
+                    )
                 )
             )
         }

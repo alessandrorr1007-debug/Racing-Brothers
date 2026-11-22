@@ -25,6 +25,7 @@ import com.example.racingbrothers.characters.CharacterSpec
 import com.example.racingbrothers.vehicles.PartColorRole
 import com.example.racingbrothers.vehicles.VehiclePaintColor
 import com.example.racingbrothers.vehicles.VehicleSpec
+import com.example.racingbrothers.vehicles.VehicleAppearance
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.NeonCyan
 import kotlin.math.cos
@@ -68,11 +69,12 @@ fun Vehicle3DPreview(
     initialYawDeg: Float = 38f,
     initialPitchDeg: Float = 18f,
     zoomScale: Float = 1.0f,
-    garageLighting: Boolean = false
+    garageLighting: Boolean = false,
+    appearance: VehicleAppearance = VehicleAppearance()
 ) {
-    val boxes = remember(vehicle.id, paintColor.id, driver?.id) {
+    val boxes = remember(vehicle.id, paintColor.id, driver?.id, appearance) {
         buildList {
-            for (part in vehicle.parts) {
+            for (part in appearance.applyTo(vehicle)) {
                 val color = resolveVehiclePartColor(part.role, paintColor)
                 add(
                     RenderBox3D(
@@ -91,6 +93,15 @@ fun Vehicle3DPreview(
                             part.role == PartColorRole.ACCENT_GLOW
                     )
                 )
+                if (part.isWheel) {
+                    val side = if (part.centerX < 0f) -1f else 1f
+                    add(RenderBox3D(
+                        cx = part.centerX + side * part.width * 0.5f,
+                        cy = part.centerY, cz = part.centerZ,
+                        w = 0.035f, h = part.height * 0.57f, l = part.length * 0.57f,
+                        color = Color(appearance.rimArgb)
+                    ))
+                }
             }
             if (driver != null) {
                 val scale = 0.56f

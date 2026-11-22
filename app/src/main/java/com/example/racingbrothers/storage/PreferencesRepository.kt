@@ -5,12 +5,14 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.BuildConfig
 import com.example.racingbrothers.camera.CameraMode
 import com.example.racingbrothers.characters.CharacterCatalog
 import com.example.racingbrothers.vehicles.VehicleCatalog
+import com.example.racingbrothers.vehicles.VehicleAppearance
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -34,7 +36,8 @@ data class UserPreferences(
     val soundEnabled: Boolean = true,
     val graphicsQuality: GraphicsQuality = GraphicsQuality.HIGH,
     val preferredCameraMode: CameraMode = CameraMode.CLOSE_CHASE,
-    val serverBaseUrl: String = BuildConfig.DEFAULT_SERVER_URL
+    val serverBaseUrl: String = BuildConfig.DEFAULT_SERVER_URL,
+    val appearance: VehicleAppearance = VehicleAppearance()
 ) {
     val isServerConfigured: Boolean
         get() = serverBaseUrl.trim().isNotEmpty()
@@ -56,6 +59,9 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
         val GRAPHICS_QUALITY = stringPreferencesKey("graphics_quality")
         val CAMERA_MODE = stringPreferencesKey("preferred_camera_mode")
         val SERVER_BASE_URL = stringPreferencesKey("server_base_url")
+        val RIMS = intPreferencesKey("vehicle_rims")
+        val SPOILER = intPreferencesKey("vehicle_spoiler")
+        val DECALS = intPreferencesKey("vehicle_decals")
     }
 
     val preferencesFlow: Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -66,14 +72,20 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
             soundEnabled = prefs[Keys.SOUND_ENABLED] ?: true,
             graphicsQuality = GraphicsQuality.fromId(prefs[Keys.GRAPHICS_QUALITY]),
             preferredCameraMode = CameraMode.fromId(prefs[Keys.CAMERA_MODE] ?: CameraMode.CLOSE_CHASE.id),
-            serverBaseUrl = prefs[Keys.SERVER_BASE_URL]?.takeIf { it.isNotBlank() } ?: BuildConfig.DEFAULT_SERVER_URL
+            serverBaseUrl = prefs[Keys.SERVER_BASE_URL]?.takeIf { it.isNotBlank() } ?: BuildConfig.DEFAULT_SERVER_URL,
+            appearance = VehicleAppearance(prefs[Keys.RIMS] ?: 0, prefs[Keys.SPOILER] ?: 0, prefs[Keys.DECALS] ?: 0)
         )
     }
 
-    suspend fun saveVehicleSelection(vehicleId: String, colorId: String) {
+    suspend fun saveVehicleSelection(vehicleId: String, colorId: String, appearance: VehicleAppearance? = null) {
         dataStore.edit { prefs ->
             prefs[Keys.VEHICLE_ID] = vehicleId
             prefs[Keys.COLOR_ID] = colorId
+            if (appearance != null) {
+                prefs[Keys.RIMS] = appearance.rims
+                prefs[Keys.SPOILER] = appearance.spoiler
+                prefs[Keys.DECALS] = appearance.decals
+            }
         }
     }
 

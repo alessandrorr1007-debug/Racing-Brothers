@@ -181,11 +181,13 @@ fun RacingBrothersApp(
             CarSelectionScreen(
                 initialVehicleId = prefs.selectedVehicleId,
                 initialColorId = prefs.selectedColorId,
+                initialAppearance = prefs.appearance,
                 roomCode = mpState.roomCode,
                 onBack = {
                     viewModel.playClick()
                     navController.popBackStack()
                 },
+                onSaveAppearance = viewModel::saveVehicleAppearance,
                 onConfirmCar = { vehicleId, colorId ->
                     viewModel.playClick()
                     viewModel.confirmVehicleSelection(vehicleId, colorId)

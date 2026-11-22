@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.racingbrothers.ui.components.Vehicle3DPreview
 import com.example.racingbrothers.vehicles.VehicleCatalog
+import com.example.racingbrothers.vehicles.VehicleAppearance
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.IceWhite
 import com.example.ui.theme.JetBrainsMonoFontFamily
@@ -69,7 +73,9 @@ fun CarSelectionScreen(
     initialColorId: String,
     roomCode: String?,
     onBack: () -> Unit,
-    onConfirmCar: (vehicleId: String, colorId: String) -> Unit
+    onConfirmCar: (vehicleId: String, colorId: String) -> Unit,
+    initialAppearance: VehicleAppearance = VehicleAppearance(),
+    onSaveAppearance: (String, String, VehicleAppearance) -> Unit = { _, _, _ -> }
 ) {
     val vehicles = VehicleCatalog.vehicles
     val colors = VehicleCatalog.paintColors
@@ -78,12 +84,17 @@ fun CarSelectionScreen(
         mutableIntStateOf(vehicles.indexOfFirst { it.id == initialVehicleId }.coerceAtLeast(0))
     }
     var selectedColorId by remember { mutableStateOf(initialColorId) }
+    var personalizing by rememberSaveable { mutableStateOf(false) }
+    var rims by rememberSaveable { mutableIntStateOf(initialAppearance.rims) }
+    var spoiler by rememberSaveable { mutableIntStateOf(initialAppearance.spoiler) }
+    var decals by rememberSaveable { mutableIntStateOf(initialAppearance.decals) }
+    val appearance = VehicleAppearance(rims, spoiler, decals)
 
     val currentVehicle = vehicles[selectedIndex]
     val currentColor = VehicleCatalog.getPaintColor(selectedColorId)
 
     SelectionScreenLayout(
-        title = stringResource(R.string.car_selection_title),
+        title = stringResource(if (personalizing) R.string.car_customize else R.string.car_selection_title),
         subtitle = stringResource(R.string.car_balanced_note),
         roomCode = roomCode,
         backTag = "btn_car_back",
@@ -96,6 +107,7 @@ fun CarSelectionScreen(
                 paintColor = currentColor,
                 autoRotate = true,
                 garageLighting = true,
+                appearance = appearance,
                 interactiveDrag = true,
                 zoomScale = 1.12f,
                 modifier = Modifier
@@ -265,11 +277,30 @@ fun CarSelectionScreen(
                         }
                     }
                 }
+                if (personalizing) {
+                    StyleOptions(R.string.car_rims, listOf(R.string.style_chrome, R.string.style_gold, R.string.style_graphite), rims) { rims = it }
+                    StyleOptions(R.string.car_spoiler, listOf(R.string.style_stock, R.string.style_none, R.string.style_sport), spoiler) { spoiler = it }
+                    StyleOptions(R.string.car_decals, listOf(R.string.style_none, R.string.style_white, R.string.style_dark), decals) { decals = it }
+                } else {
+                    OutlinedButton(
+                        onClick = { personalizing = true },
+                        modifier = Modifier.testTag("btn_customize_car")
+                    ) {
+                        Text(stringResource(R.string.car_customize))
+                    }
+                }
             }
         },
         confirm = {
             Button(
-                onClick = { onConfirmCar(currentVehicle.id, selectedColorId) },
+                onClick = {
+                    if (personalizing) {
+                        onSaveAppearance(currentVehicle.id, selectedColorId, appearance)
+                        personalizing = false
+                    } else {
+                        onConfirmCar(currentVehicle.id, selectedColorId)
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = ElectricBlue,
                     contentColor = VoidBlack
@@ -278,13 +309,28 @@ fun CarSelectionScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 52.dp)
-                    .testTag("btn_confirm_car")
+                    .testTag(if (personalizing) "btn_save_appearance" else "btn_confirm_car")
             ) {
                 Text(
-                    text = stringResource(R.string.btn_confirm_car),
+                    text = stringResource(if (personalizing) R.string.car_save_style else R.string.btn_confirm_car),
                     style = MaterialTheme.typography.labelLarge
                 )
             }
         }
     )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StyleOptions(title: Int, labels: List<Int>, value: Int, onChange: (Int) -> Unit) {
+    Text(stringResource(title), color = IceWhite)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        labels.forEachIndexed { index, label ->
+            FilterChip(
+                selected = index == value,
+                onClick = { onChange(index) },
+                label = { Text(stringResource(label)) }
+            )
+        }
+    }
 }

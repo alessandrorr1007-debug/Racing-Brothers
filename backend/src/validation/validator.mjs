@@ -27,11 +27,15 @@ export function generateRoomCode() {
   return String(value % 1_000_000).padStart(6, "0");
 }
 
-export function sanitizeSelection(vehicleId, colorId, characterId) {
+export function sanitizeSelection({ vehicleId, colorId, characterId, rims, spoiler, decals }) {
+  const appearanceOption = (value) => Number.isInteger(value) && value >= 0 && value <= 2 ? value : 0;
   return {
     vehicleId: ALLOWED_VEHICLES.has(vehicleId) ? vehicleId : "vortex_rs",
     colorId: ALLOWED_COLORS.has(colorId) ? colorId : "electric_cobalt",
-    characterId: ALLOWED_CHARACTERS.has(characterId) ? characterId : "nico_turbo"
+    characterId: ALLOWED_CHARACTERS.has(characterId) ? characterId : "nico_turbo",
+    rims: appearanceOption(rims),
+    spoiler: appearanceOption(spoiler),
+    decals: appearanceOption(decals)
   };
 }
 

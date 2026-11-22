@@ -334,13 +334,19 @@ test("3. Two independent clients join, sync car/character, reject 3rd player, re
   sendMsg(c2, "update_selection", {
     vehicleId: "formula_aero",
     colorId: "venom_emerald",
-    characterId: "beto_torque"
+    characterId: "beto_torque",
+    rims: 2,
+    spoiler: 1,
+    decals: 999
   });
   const syncedState = lastMsgOfType(c1, "room_state");
   const syncedP2 = syncedState.players.find((p) => p.slot === 1);
   assert.equal(syncedP2.vehicleId, "formula_aero");
   assert.equal(syncedP2.colorId, "venom_emerald");
   assert.equal(syncedP2.characterId, "beto_torque");
+  assert.equal(syncedP2.rims, 2);
+  assert.equal(syncedP2.spoiler, 1);
+  assert.equal(syncedP2.decals, 0);
 
   // Guest cannot start race
   sendMsg(c2, "start_race");

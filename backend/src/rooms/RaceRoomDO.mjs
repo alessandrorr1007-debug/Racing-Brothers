@@ -257,6 +257,9 @@ export class RaceRoomDO {
         vehicleId: p.vehicleId,
         colorId: p.colorId,
         characterId: p.characterId,
+        rims: p.rims,
+        spoiler: p.spoiler,
+        decals: p.decals,
         ready: p.ready,
         rematchRequested: p.rematchRequested
       }));
@@ -375,7 +378,7 @@ export class RaceRoomDO {
     const isHost = slot === 0;
     const playerId = `p_${crypto.randomUUID().slice(0, 8)}`;
     const sessionToken = crypto.randomUUID();
-    const sel = sanitizeSelection(msg.vehicleId, msg.colorId, msg.characterId);
+    const selection = sanitizeSelection(msg);
 
     const record = {
       playerId,
@@ -383,9 +386,7 @@ export class RaceRoomDO {
       slot,
       isHost,
       connected: true,
-      vehicleId: sel.vehicleId,
-      colorId: sel.colorId,
-      characterId: sel.characterId,
+      ...selection,
       ready: false,
       rematchRequested: false,
       lastSeq: -1,
@@ -507,10 +508,7 @@ export class RaceRoomDO {
       return;
     }
 
-    const sel = sanitizeSelection(msg.vehicleId, msg.colorId, msg.characterId);
-    player.vehicleId = sel.vehicleId;
-    player.colorId = sel.colorId;
-    player.characterId = sel.characterId;
+    Object.assign(player, sanitizeSelection(msg));
 
     this.broadcast("room_state", {
       roomCode: this.roomCode,
