@@ -11,6 +11,7 @@
 
     <application
         android:allowBackup="false"
+        android:appCategory="game"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -26,6 +27,7 @@
             android:exported="true"
             android:label="@string/app_name"
             android:screenOrientation="sensorLandscape"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.RacingBrothers">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

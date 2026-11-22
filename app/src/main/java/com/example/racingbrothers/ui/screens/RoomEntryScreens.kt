@@ -8,20 +8,27 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -45,12 +52,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -77,6 +85,7 @@ import com.example.ui.theme.SilverMist
 import com.example.ui.theme.TrackBorderBlue
 import com.example.ui.theme.VoidBlack
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CreateRoomScreen(
     multiplayerState: MultiplayerUiState,
@@ -85,189 +94,143 @@ fun CreateRoomScreen(
     onLeaveAndBack: () -> Unit
 ) {
     val context = LocalContext.current
-    var copiedFeedback by remember { mutableStateOf(false) }
+    var copiedFeedback by rememberSaveable(multiplayerState.roomCode) { mutableStateOf(false) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(VoidBlack, AsphaltNavy)))
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 24.dp, vertical = 14.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+    RoomEntryLayout(
+        title = stringResource(R.string.create_room_title),
+        backLabel = stringResource(R.string.btn_leave_room),
+        backTag = "btn_create_leave",
+        connectionStatus = multiplayerState.connectionStatus,
+        onBack = onLeaveAndBack,
+        cardWidthFraction = 0.78f,
+        footer = {
+            Button(
+                onClick = onContinueToGarage,
+                enabled = multiplayerState.roomCode != null &&
+                    multiplayerState.connectionStatus == ConnectionStatus.CONNECTED,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ElectricBlue,
+                    contentColor = VoidBlack
+                ),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .heightIn(min = 52.dp)
+                    .testTag("btn_continue_garage")
             ) {
-                OutlinedButton(
-                    onClick = onLeaveAndBack,
-                    border = BorderStroke(1.dp, TrackBorderBlue),
-                    modifier = Modifier
-                        .height(48.dp)
-                        .testTag("btn_create_leave")
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = IceWhite)
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.btn_leave_room), color = IceWhite, fontSize = 12.sp)
-                }
-
+                Icon(Icons.Filled.DirectionsCar, contentDescription = null)
+                Spacer(Modifier.width(10.dp))
                 Text(
-                    text = stringResource(R.string.create_room_title),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = ElectricBlue
+                    text = stringResource(R.string.btn_continue_garage),
+                    style = MaterialTheme.typography.labelLarge
                 )
-
-                ConnectionBadge(status = multiplayerState.connectionStatus)
+            }
+        }
+    ) { compact ->
+        val roomCode = multiplayerState.roomCode
+        when {
+            multiplayerState.connectionStatus == ConnectionStatus.CONNECTING -> {
+                CircularProgressIndicator(color = ElectricBlue)
+                Text(
+                    text = stringResource(R.string.server_status_connecting),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = IceWhite,
+                    textAlign = TextAlign.Center
+                )
             }
 
-            // Center Card
-            Surface(
-                color = CockpitSlate.copy(alpha = 0.85f),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.5.dp, ElectricBlue.copy(alpha = 0.65f)),
-                modifier = Modifier
-                    .fillMaxWidth(0.78f)
-                    .align(Alignment.CenterHorizontally)
-            ) {
-                Column(
-                    modifier = Modifier.padding(22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            roomCode != null && multiplayerState.connectionStatus == ConnectionStatus.CONNECTED -> {
+                Text(
+                    text = stringResource(R.string.room_code_label),
+                    fontFamily = OrbitronFontFamily,
+                    fontSize = 12.sp,
+                    letterSpacing = 2.sp,
+                    color = SilverMist,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = roomCode.chunked(3).joinToString(" - "),
+                    fontFamily = JetBrainsMonoFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = if (compact) 32.sp else 40.sp,
+                    letterSpacing = if (compact) 2.sp else 4.sp,
+                    color = NeonCyan,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("created_room_code")
+                )
+                Text(
+                    text = "Anfitrión reservado en Puesto 1 · Cupo máximo: 2 jugadores",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SilverMist,
+                    textAlign = TextAlign.Center
+                )
+
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val roomCode = multiplayerState.roomCode
-                    when {
-                        multiplayerState.connectionStatus == ConnectionStatus.CONNECTING -> {
-                            CircularProgressIndicator(color = ElectricBlue)
-                            Text(
-                                text = "Conectando al servidor multijugador…",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = IceWhite
-                            )
-                        }
+                    OutlinedButton(
+                        onClick = {
+                            copyRoomCode(context, roomCode)
+                            copiedFeedback = true
+                        },
+                        border = BorderStroke(1.5.dp, ElectricBlue),
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("btn_copy_code")
+                    ) {
+                        Icon(
+                            imageVector = if (copiedFeedback) Icons.Filled.Check else Icons.Filled.ContentCopy,
+                            contentDescription = null,
+                            tint = ElectricBlue
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (copiedFeedback) stringResource(R.string.code_copied_toast) else stringResource(R.string.btn_copy_code),
+                            color = IceWhite
+                        )
+                    }
 
-                        roomCode != null && multiplayerState.connectionStatus == ConnectionStatus.CONNECTED -> {
-                            Text(
-                                text = stringResource(R.string.room_code_label),
-                                fontFamily = OrbitronFontFamily,
-                                fontSize = 12.sp,
-                                letterSpacing = 2.sp,
-                                color = SilverMist
-                            )
-                            Text(
-                                text = roomCode.chunked(3).joinToString(" - "),
-                                fontFamily = JetBrainsMonoFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 40.sp,
-                                letterSpacing = 4.sp,
-                                color = NeonCyan,
-                                modifier = Modifier.testTag("created_room_code")
-                            )
-                            Text(
-                                text = "Anfitrión reservado en Puesto 1 · Cupo máximo: 2 jugadores",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = SilverMist
-                            )
-
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedButton(
-                                    onClick = {
-                                        copyRoomCode(context, roomCode)
-                                        copiedFeedback = true
-                                    },
-                                    border = BorderStroke(1.5.dp, ElectricBlue),
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .testTag("btn_copy_code")
-                                ) {
-                                    Icon(
-                                        imageVector = if (copiedFeedback) Icons.Filled.Check else Icons.Filled.ContentCopy,
-                                        contentDescription = null,
-                                        tint = ElectricBlue
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = if (copiedFeedback) stringResource(R.string.code_copied_toast) else stringResource(R.string.btn_copy_code),
-                                        color = IceWhite
-                                    )
-                                }
-
-                                OutlinedButton(
-                                    onClick = { shareRoomCode(context, roomCode) },
-                                    border = BorderStroke(1.5.dp, ElectricBlue),
-                                    modifier = Modifier
-                                        .height(48.dp)
-                                        .testTag("btn_share_code")
-                                ) {
-                                    Icon(Icons.Filled.Share, contentDescription = null, tint = ElectricBlue)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(stringResource(R.string.btn_share_code), color = IceWhite)
-                                }
-                            }
-                        }
-
-                        else -> {
-                            Icon(
-                                imageVector = Icons.Filled.ErrorOutline,
-                                contentDescription = null,
-                                tint = CautionAmber,
-                                modifier = Modifier.size(40.dp)
-                            )
-                            Text(
-                                text = multiplayerState.errorMessage
-                                    ?: stringResource(R.string.server_unconfigured_hint),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = IceWhite,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.testTag("create_room_error")
-                            )
-                            Button(
-                                onClick = onRetryCreate,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = ElectricBlue,
-                                    contentColor = VoidBlack
-                                ),
-                                modifier = Modifier
-                                    .height(48.dp)
-                                    .testTag("btn_retry_create")
-                            ) {
-                                Icon(Icons.Filled.Refresh, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("REINTENTAR", fontFamily = OrbitronFontFamily)
-                            }
-                        }
+                    OutlinedButton(
+                        onClick = { shareRoomCode(context, roomCode) },
+                        border = BorderStroke(1.5.dp, ElectricBlue),
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("btn_share_code")
+                    ) {
+                        Icon(Icons.Filled.Share, contentDescription = null, tint = ElectricBlue)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.btn_share_code), color = IceWhite)
                     }
                 }
             }
 
-            // Bottom Action
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
+            else -> {
+                Icon(
+                    imageVector = Icons.Filled.ErrorOutline,
+                    contentDescription = null,
+                    tint = CautionAmber,
+                    modifier = Modifier.size(40.dp)
+                )
+                Text(
+                    text = stringResource(R.string.connection_failed),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = IceWhite,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.testTag("create_room_error")
+                )
                 Button(
-                    onClick = onContinueToGarage,
-                    enabled = multiplayerState.roomCode != null &&
-                        multiplayerState.connectionStatus == ConnectionStatus.CONNECTED,
+                    onClick = onRetryCreate,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ElectricBlue,
                         contentColor = VoidBlack
                     ),
-                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
-                        .height(52.dp)
-                        .testTag("btn_continue_garage")
+                        .heightIn(min = 48.dp)
+                        .testTag("btn_retry_create")
                 ) {
-                    Icon(Icons.Filled.DirectionsCar, contentDescription = null)
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = stringResource(R.string.btn_continue_garage),
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    Icon(Icons.Filled.Refresh, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.btn_retry_connection), fontFamily = OrbitronFontFamily)
                 }
             }
         }
@@ -281,8 +244,8 @@ fun JoinRoomScreen(
     onJoinedSuccess: () -> Unit,
     onBack: () -> Unit
 ) {
-    var codeInput by remember { mutableStateOf("") }
-    var localFormatError by remember { mutableStateOf<String?>(null) }
+    var codeInput by rememberSaveable { mutableStateOf("") }
+    var localFormatError by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(multiplayerState.roomCode, multiplayerState.connectionStatus) {
         if (multiplayerState.roomCode != null &&
@@ -292,149 +255,210 @@ fun JoinRoomScreen(
         }
     }
 
-    Box(
+    RoomEntryLayout(
+        title = stringResource(R.string.join_room_title),
+        backLabel = stringResource(R.string.btn_back),
+        backTag = "btn_join_back",
+        connectionStatus = multiplayerState.connectionStatus,
+        onBack = onBack,
+        cardWidthFraction = 0.72f
+    ) { compact ->
+        Text(
+            text = stringResource(R.string.room_code_input_hint),
+            style = MaterialTheme.typography.titleMedium,
+            color = SilverMist,
+            textAlign = TextAlign.Center
+        )
+
+        OutlinedTextField(
+            value = codeInput,
+            onValueChange = { raw ->
+                codeInput = RoomCodeValidator.normalize(raw)
+                localFormatError = false
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
+            textStyle = MaterialTheme.typography.headlineLarge.copy(
+                fontFamily = JetBrainsMonoFontFamily,
+                letterSpacing = 6.sp,
+                textAlign = TextAlign.Center,
+                color = NeonCyan
+            ),
+            placeholder = {
+                Text(
+                    text = "048219",
+                    fontFamily = JetBrainsMonoFontFamily,
+                    letterSpacing = 6.sp,
+                    textAlign = TextAlign.Center,
+                    color = SilverMist.copy(alpha = 0.35f),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ElectricBlue,
+                unfocusedBorderColor = TrackBorderBlue
+            ),
+            modifier = Modifier
+                .fillMaxWidth(if (compact) 1f else 0.75f)
+                .testTag("input_join_room_code")
+        )
+
+        val displayedError = when {
+            localFormatError -> stringResource(R.string.error_invalid_code)
+            multiplayerState.errorMessage != null -> playerFacingJoinError(multiplayerState.errorMessage)
+            multiplayerState.connectionStatus == ConnectionStatus.ERROR -> stringResource(R.string.connection_failed)
+            else -> null
+        }
+        if (displayedError != null) {
+            Text(
+                text = displayedError,
+                color = DangerCrimson,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.testTag("join_room_error")
+            )
+        }
+
+        val isSixDigitCode = RoomCodeValidator.isValid(codeInput)
+        Button(
+            onClick = {
+                if (!isSixDigitCode) {
+                    localFormatError = true
+                } else {
+                    onJoinSubmit(codeInput)
+                }
+            },
+            enabled = isSixDigitCode &&
+                multiplayerState.connectionStatus != ConnectionStatus.CONNECTING,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ElectricBlue,
+                contentColor = VoidBlack
+            ),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth(if (compact) 1f else 0.75f)
+                .heightIn(min = 52.dp)
+                .testTag("btn_connect_room")
+        ) {
+            if (multiplayerState.connectionStatus == ConnectionStatus.CONNECTING) {
+                CircularProgressIndicator(
+                    color = VoidBlack,
+                    strokeWidth = 2.5.dp,
+                    modifier = Modifier.size(22.dp)
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.btn_connect_room),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RoomEntryLayout(
+    title: String,
+    backLabel: String,
+    backTag: String,
+    connectionStatus: ConnectionStatus,
+    onBack: () -> Unit,
+    cardWidthFraction: Float,
+    footer: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.(compact: Boolean) -> Unit
+) {
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(VoidBlack, AsphaltNavy)))
             .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 24.dp, vertical = 14.dp)
     ) {
+        val narrow = maxWidth < 640.dp
+        val compact = narrow || maxHeight < 360.dp
+        val scrollWholeScreen = maxHeight < 160.dp + 50.dp * LocalDensity.current.fontScale
+        val screenScroll = rememberScrollState()
+        val cardScroll = rememberScrollState()
+        val spacing = if (compact) 6.dp else 12.dp
+        val maxBackWidth = maxWidth * 0.4f
+        val maxBadgeWidth = maxWidth * 0.3f
+
         Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxSize()
+                .then(if (scrollWholeScreen) Modifier.verticalScroll(screenScroll) else Modifier)
+                .padding(horizontal = if (narrow) 12.dp else 24.dp, vertical = if (compact) 6.dp else 14.dp),
+            verticalArrangement = Arrangement.spacedBy(spacing)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(spacing),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
                     onClick = onBack,
                     border = BorderStroke(1.dp, TrackBorderBlue),
-                    modifier = Modifier
-                        .height(48.dp)
-                        .testTag("btn_join_back")
+                    modifier = Modifier.widthIn(max = maxBackWidth)
+                        .heightIn(min = 48.dp)
+                        .testTag(backTag)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = IceWhite)
                     Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.btn_back), color = IceWhite, fontSize = 12.sp)
+                    Text(backLabel, color = IceWhite, fontSize = 12.sp)
                 }
-
                 Text(
-                    text = stringResource(R.string.join_room_title),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = ElectricBlue
+                    text = title,
+                    style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge,
+                    color = ElectricBlue,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f)
                 )
-
-                ConnectionBadge(status = multiplayerState.connectionStatus)
+                Box(Modifier.widthIn(max = maxBadgeWidth)) {
+                    ConnectionBadge(status = connectionStatus)
+                }
             }
-
-            Surface(
-                color = CockpitSlate.copy(alpha = 0.85f),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.5.dp, ElectricBlue.copy(alpha = 0.65f)),
-                modifier = Modifier
-                    .fillMaxWidth(0.72f)
-                    .align(Alignment.CenterHorizontally)
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .then(if (scrollWholeScreen) Modifier else Modifier.weight(1f)),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                Surface(
+                    color = CockpitSlate.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.5.dp, ElectricBlue.copy(alpha = 0.65f)),
+                    modifier = Modifier.widthIn(max = 880.dp)
+                        .fillMaxWidth(if (narrow) 1f else cardWidthFraction)
                 ) {
-                    Text(
-                        text = stringResource(R.string.room_code_input_hint),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = SilverMist
-                    )
-
-                    OutlinedTextField(
-                        value = codeInput,
-                        onValueChange = { raw ->
-                            codeInput = RoomCodeValidator.normalize(raw)
-                            localFormatError = null
-                        },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done
-                        ),
-                        textStyle = MaterialTheme.typography.headlineLarge.copy(
-                            fontFamily = JetBrainsMonoFontFamily,
-                            letterSpacing = 6.sp,
-                            textAlign = TextAlign.Center,
-                            color = NeonCyan
-                        ),
-                        placeholder = {
-                            Text(
-                                text = "048219",
-                                fontFamily = JetBrainsMonoFontFamily,
-                                letterSpacing = 6.sp,
-                                textAlign = TextAlign.Center,
-                                color = SilverMist.copy(alpha = 0.35f),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = ElectricBlue,
-                            unfocusedBorderColor = TrackBorderBlue
-                        ),
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth(0.75f)
-                            .testTag("input_join_room_code")
-                    )
-
-                    val displayedError = localFormatError ?: multiplayerState.errorMessage
-                    if (displayedError != null) {
-                        Text(
-                            text = displayedError,
-                            color = DangerCrimson,
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.testTag("join_room_error")
-                        )
-                    }
-
-                    val isSixDigitCode = RoomCodeValidator.isValid(codeInput)
-                    Button(
-                        onClick = {
-                            if (!isSixDigitCode) {
-                                localFormatError = "Código inválido: ingresa exactamente 6 dígitos numéricos (0-9)."
-                            } else {
-                                onJoinSubmit(codeInput)
-                            }
-                        },
-                        enabled = isSixDigitCode &&
-                            multiplayerState.connectionStatus != ConnectionStatus.CONNECTING,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ElectricBlue,
-                            contentColor = VoidBlack
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier
-                            .fillMaxWidth(0.75f)
-                            .height(52.dp)
-                            .testTag("btn_connect_room")
+                            .then(if (scrollWholeScreen) Modifier else Modifier.verticalScroll(cardScroll))
+                            .padding(horizontal = if (compact) 14.dp else 22.dp, vertical = if (compact) 8.dp else 22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(spacing)
                     ) {
-                        if (multiplayerState.connectionStatus == ConnectionStatus.CONNECTING) {
-                            CircularProgressIndicator(
-                                color = VoidBlack,
-                                strokeWidth = 2.5.dp,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        } else {
-                            Text(
-                                text = stringResource(R.string.btn_connect_room),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
+                        content(compact)
                     }
                 }
             }
-
-            Spacer(Modifier.height(8.dp))
+            if (footer != null) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                    footer()
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun playerFacingJoinError(message: String): String = when (message) {
+    "La sala no existe o el código es incorrecto.",
+    "Esta sala ya fue cerrada.",
+    "La sala ya no está disponible.",
+    "El código de sala no coincide.",
+    "La sala está llena (máximo 2 jugadores).",
+    "La carrera ya ha comenzado." -> message
+    else -> stringResource(R.string.connection_failed)
 }
 
 @Composable
@@ -443,8 +467,7 @@ fun ConnectionBadge(status: ConnectionStatus) {
         ConnectionStatus.CONNECTED -> stringResource(R.string.server_status_connected) to RacingGreen
         ConnectionStatus.CONNECTING -> stringResource(R.string.server_status_connecting) to ElectricBlue
         ConnectionStatus.RECONNECTING -> stringResource(R.string.server_status_reconnecting) to CautionAmber
-        ConnectionStatus.UNCONFIGURED -> stringResource(R.string.server_status_unconfigured) to CautionAmber
-        ConnectionStatus.ERROR -> "Error" to DangerCrimson
+        ConnectionStatus.UNCONFIGURED, ConnectionStatus.ERROR -> return
         ConnectionStatus.DISCONNECTED -> "Desconectado" to SilverMist
     }
     Surface(

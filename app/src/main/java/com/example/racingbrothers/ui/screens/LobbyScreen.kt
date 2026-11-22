@@ -4,21 +4,26 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.safeContent
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.CheckCircle
@@ -42,9 +47,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -69,6 +76,7 @@ import com.example.ui.theme.TrackBorderBlue
 import com.example.ui.theme.VoidBlack
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun LobbyScreen(
     multiplayerState: MultiplayerUiState,
     onEditSetup: () -> Unit,
@@ -91,28 +99,41 @@ fun LobbyScreen(
     val localReady = multiplayerState.localPlayer?.ready == true
     val roomCode = multiplayerState.roomCode ?: "------"
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(VoidBlack, AsphaltNavy)))
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .windowInsetsPadding(WindowInsets.safeContent)
     ) {
+        val fontScale = LocalDensity.current.fontScale
+        val compact = maxHeight < 340.dp || maxWidth < 650.dp || fontScale > 1.25f
+        val sidePadding = if (compact) 12.dp else 20.dp
+        val verticalPadding = if (compact) 8.dp else 12.dp
+        val contentHeight = (maxHeight - verticalPadding * 2f).coerceAtLeast(0.dp)
+        val previewHeight = (contentHeight * if (compact) 0.24f else 0.36f).coerceIn(60.dp, 210.dp)
+        val cardHeight = if (compact) previewHeight + 68.dp else
+            (contentHeight - 140.dp).coerceAtLeast(previewHeight + 68.dp)
+
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = sidePadding, vertical = verticalPadding)
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = contentHeight),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Top bar: Leave + Room Code with Copy/Share + Connection Badge
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OutlinedButton(
                     onClick = onLeaveRoom,
                     border = BorderStroke(1.dp, DangerCrimson.copy(alpha = 0.65f)),
                     modifier = Modifier
-                        .height(48.dp)
+                        .align(Alignment.CenterVertically)
+                        .heightIn(min = 48.dp)
                         .testTag("btn_lobby_leave")
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = DangerCrimson)
@@ -124,18 +145,19 @@ fun LobbyScreen(
                 Surface(
                     color = CockpitSlate,
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.5.dp, ElectricBlue)
+                    border = BorderStroke(1.5.dp, ElectricBlue),
+                    modifier = Modifier.align(Alignment.CenterVertically)
                 ) {
-                    Row(
+                    FlowRow(
                         modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
                             text = "${stringResource(R.string.lobby_title)} · ",
                             fontFamily = OrbitronFontFamily,
                             fontSize = 11.sp,
-                            color = SilverMist
+                            color = SilverMist,
+                            modifier = Modifier.align(Alignment.CenterVertically)
                         )
                         Text(
                             text = roomCode,
@@ -144,41 +166,48 @@ fun LobbyScreen(
                             fontSize = 18.sp,
                             letterSpacing = 2.sp,
                             color = NeonCyan,
-                            modifier = Modifier.testTag("lobby_room_code")
+                            softWrap = false,
+                            modifier = Modifier.align(Alignment.CenterVertically).testTag("lobby_room_code")
                         )
-                        IconButton(
-                            onClick = { copyRoomCode(context, roomCode) },
-                            modifier = Modifier.size(40.dp).testTag("btn_lobby_copy")
-                        ) {
-                            Icon(Icons.Filled.ContentCopy, contentDescription = "Copiar código", tint = ElectricBlue, modifier = Modifier.size(18.dp))
-                        }
-                        IconButton(
-                            onClick = { shareRoomCode(context, roomCode) },
-                            modifier = Modifier.size(40.dp).testTag("btn_lobby_share")
-                        ) {
-                            Icon(Icons.Filled.Share, contentDescription = "Compartir código", tint = ElectricBlue, modifier = Modifier.size(18.dp))
+                        Row(modifier = Modifier.align(Alignment.CenterVertically)) {
+                            IconButton(
+                                onClick = { copyRoomCode(context, roomCode) },
+                                modifier = Modifier.size(48.dp).testTag("btn_lobby_copy")
+                            ) {
+                                Icon(Icons.Filled.ContentCopy, contentDescription = "Copiar código", tint = ElectricBlue, modifier = Modifier.size(18.dp))
+                            }
+                            IconButton(
+                                onClick = { shareRoomCode(context, roomCode) },
+                                modifier = Modifier.size(48.dp).testTag("btn_lobby_share")
+                            ) {
+                                Icon(Icons.Filled.Share, contentDescription = "Compartir código", tint = ElectricBlue, modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
                 }
 
-                ConnectionBadge(status = multiplayerState.connectionStatus)
+                Box(modifier = Modifier.align(Alignment.CenterVertically)) {
+                    ConnectionBadge(status = multiplayerState.connectionStatus)
+                }
             }
 
             // Middle: Side-by-side Player 1 vs Player 2 cards
-            Row(
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .padding(vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(vertical = if (compact) 8.dp else 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                maxItemsInEachRow = if (maxWidth / fontScale < 340.dp) 1 else 2
             ) {
                 LobbyPlayerCard(
                     slotTitle = stringResource(R.string.player_1_label),
                     player = player1,
                     isLocal = player1?.playerId == multiplayerState.localPlayerId,
+                    previewHeight = previewHeight,
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight()
+                        .heightIn(min = cardHeight)
                         .testTag("lobby_player_1_card")
                 )
 
@@ -186,25 +215,27 @@ fun LobbyScreen(
                     slotTitle = stringResource(R.string.player_2_label),
                     player = player2,
                     isLocal = player2?.playerId == multiplayerState.localPlayerId,
+                    previewHeight = previewHeight,
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight()
+                        .heightIn(min = cardHeight)
                         .testTag("lobby_player_2_card")
                 )
             }
 
             // Bottom Action Bar: Edit Setup + LISTO + INICIAR CARRERA (Host exclusive)
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OutlinedButton(
                     onClick = onEditSetup,
                     enabled = !localReady,
                     border = BorderStroke(1.dp, TrackBorderBlue),
                     modifier = Modifier
-                        .height(50.dp)
+                        .align(Alignment.CenterVertically)
+                        .heightIn(min = 50.dp)
                         .testTag("btn_lobby_edit_setup")
                 ) {
                     Icon(Icons.Filled.Edit, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(18.dp))
@@ -221,10 +252,16 @@ fun LobbyScreen(
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (multiplayerState.canHostStartRace) RacingGreen else SilverMist,
-                    modifier = Modifier.padding(horizontal = 8.dp)
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .padding(horizontal = 8.dp)
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlowRow(
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     // LISTO / CANCELAR LISTO button
                     Button(
                         onClick = onToggleReady,
@@ -234,7 +271,7 @@ fun LobbyScreen(
                         ),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
-                            .height(50.dp)
+                            .heightIn(min = 50.dp)
                             .testTag("btn_lobby_ready")
                     ) {
                         Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -256,7 +293,7 @@ fun LobbyScreen(
                             ),
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier
-                                .height(50.dp)
+                                .heightIn(min = 50.dp)
                                 .testTag("btn_start_race")
                         ) {
                             Icon(Icons.Filled.Flag, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -274,10 +311,12 @@ fun LobbyScreen(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun LobbyPlayerCard(
     slotTitle: String,
     player: PlayerSlotState?,
     isLocal: Boolean,
+    previewHeight: Dp,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -296,7 +335,7 @@ private fun LobbyPlayerCard(
     ) {
         if (player == null) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(20.dp),
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -327,16 +366,17 @@ private fun LobbyPlayerCard(
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .padding(14.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Row(
+                        modifier = Modifier.align(Alignment.CenterVertically),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
@@ -357,7 +397,8 @@ private fun LobbyPlayerCard(
                     Surface(
                         color = if (player.ready) RacingGreen.copy(alpha = 0.2f) else VoidBlack.copy(alpha = 0.6f),
                         shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, if (player.ready) RacingGreen else TrackBorderBlue)
+                        border = BorderStroke(1.dp, if (player.ready) RacingGreen else TrackBorderBlue),
+                        modifier = Modifier.align(Alignment.CenterVertically)
                     ) {
                         Text(
                             text = if (player.ready) stringResource(R.string.status_ready) else stringResource(R.string.status_not_ready),
@@ -380,16 +421,16 @@ private fun LobbyPlayerCard(
                     zoomScale = 1.05f,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .height(previewHeight)
                 )
 
                 // Vehicle & Driver caption strip
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = vehicle.displayName.uppercase(),
                             fontFamily = OrbitronFontFamily,
@@ -406,6 +447,7 @@ private fun LobbyPlayerCard(
                         text = if (player.connected) stringResource(R.string.status_online) else stringResource(R.string.status_offline),
                         fontFamily = JetBrainsMonoFontFamily,
                         fontSize = 10.sp,
+                        maxLines = 2,
                         color = if (player.connected) RacingGreen else DangerCrimson
                     )
                 }

@@ -66,16 +66,22 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `main menu shows branding, create and join room buttons, configured wss server, and no solo play`() {
+    fun `main menu shows branding and room buttons without technical server details`() {
         pumpUi()
         composeTestRule.onNodeWithTag("logo_racing").assertIsDisplayed()
         composeTestRule.onNodeWithTag("logo_brothers").assertIsDisplayed()
         composeTestRule.onNodeWithTag("btn_create_room").assertIsDisplayed()
         composeTestRule.onNodeWithTag("btn_join_room").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("server_status_badge")
-            .assertIsDisplayed()
-            .assertTextContains("Servidor listo", substring = true)
+        composeTestRule.onNodeWithTag("server_status_badge").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Servidor listo", substring = true).assertDoesNotExist()
+        composeTestRule.onNodeWithText("wss://", substring = true).assertDoesNotExist()
         composeTestRule.onNodeWithText("Jugar solo", ignoreCase = true).assertDoesNotExist()
+
+        composeTestRule.onNodeWithTag("btn_open_settings").performClick()
+        waitUntilDisplayed("settings_dialog")
+        composeTestRule.onNodeWithTag("btn_settings_save").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("input_server_url").assertDoesNotExist()
+        composeTestRule.onNodeWithText("wss://", substring = true).assertDoesNotExist()
     }
 
     @Test

@@ -9,12 +9,10 @@
     <string name="btn_create_room">CREAR SALA</string>
     <string name="btn_join_room">UNIRSE A SALA</string>
     <string name="btn_settings">Ajustes</string>
-    <string name="server_status_unconfigured">Servidor no configurado</string>
-    <string name="server_status_configured">Servidor listo</string>
     <string name="server_status_connected">Conectado</string>
     <string name="server_status_connecting">Conectando…</string>
     <string name="server_status_reconnecting">Reconectando…</string>
-    <string name="server_unconfigured_hint">Configura la URL WSS de tu Cloudflare Worker en Ajustes para jugar online.</string>
+    <string name="connection_failed">No se pudo conectar. Inténtalo nuevamente.</string>
 
     <!-- Settings -->
     <string name="settings_title">AJUSTES</string>
@@ -23,9 +21,6 @@
     <string name="settings_graphics_high">Alta (60 FPS)</string>
     <string name="settings_graphics_low">Reducida (Ahorro)</string>
     <string name="settings_camera_label">Cámara inicial</string>
-    <string name="settings_server_label">Endpoint del servidor (WSS)</string>
-    <string name="settings_server_placeholder">wss://racing-brothers.tu-subdominio.workers.dev</string>
-    <string name="settings_server_helper">Requiere wss:// en producción. Para emulador local usa ws://10.0.2.2:8787</string>
     <string name="settings_save">GUARDAR</string>
     <string name="settings_close">CERRAR</string>
 
@@ -38,6 +33,7 @@
     <string name="btn_share_code">COMPARTIR</string>
     <string name="btn_continue_garage">ELEGIR AUTO</string>
     <string name="btn_connect_room">CONECTAR</string>
+    <string name="btn_retry_connection">REINTENTAR</string>
     <string name="btn_leave_room">SALIR DE LA SALA</string>
     <string name="btn_back">VOLVER</string>
     <string name="share_room_message">¡Únete a mi carrera 1 vs 1 en Racing Brothers! Código de sala: %1$s</string>

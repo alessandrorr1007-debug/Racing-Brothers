@@ -10,20 +10,28 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.safeContent
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -45,6 +53,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,9 +61,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -92,156 +107,56 @@ fun RaceHudOverlay(
     onRequestRematch: () -> Unit,
     onExitToMenu: () -> Unit
 ) {
-    Box(
+    val fontScale = LocalDensity.current.fontScale
+    val bannerMessage = when {
+        sessionState.connectionStatus == ConnectionStatus.RECONNECTING ->
+            stringResource(R.string.race_reconnecting_banner)
+        sessionState.opponentPlayer?.connected == false && sessionState.phase != RoomPhase.FINISHED ->
+            stringResource(R.string.race_opponent_disconnected)
+        else -> null
+    }
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .windowInsetsPadding(WindowInsets.safeContent.union(WindowInsets.systemBarsIgnoringVisibility))
     ) {
-        // TOP TELEMETRY BAR
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        val compact = maxWidth / fontScale < 620.dp || maxHeight < 300.dp
+        val horizontalPadding = if (compact) 8.dp else 16.dp
+        val verticalPadding = if (compact) 6.dp else 10.dp
+        val contentWidth = (maxWidth - horizontalPadding * 2f).coerceAtLeast(0.dp)
+        val results = sessionState.raceResults
+
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = horizontalPadding, vertical = verticalPadding)
         ) {
-            // Left: Position + Lap Counter + Chronometer
+            val gap = if (compact) 6.dp else 10.dp
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(gap),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    color = VoidBlack.copy(alpha = 0.78f),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.5.dp, ElectricBlue.copy(alpha = 0.8f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "${hudSnapshot.positionRank}°/2",
-                            fontFamily = OrbitronFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = if (hudSnapshot.positionRank == 1) ElectricBlue else SilverMist,
-                            modifier = Modifier.testTag("hud_position")
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(22.dp)
-                                .background(TrackBorderBlue)
-                        )
-                        Text(
-                            text = stringResource(
-                                R.string.hud_lap_format,
-                                hudSnapshot.currentLap,
-                                hudSnapshot.totalLaps
-                            ),
-                            fontFamily = OrbitronFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = IceWhite,
-                            modifier = Modifier.testTag("hud_lap_counter")
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(22.dp)
-                                .background(TrackBorderBlue)
-                        )
-                        Text(
-                            text = formatRaceTime(hudSnapshot.elapsedMs),
-                            fontFamily = JetBrainsMonoFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = NeonCyan,
-                            modifier = Modifier.testTag("hud_timer")
-                        )
-                    }
-                }
-            }
-
-            // Right: Ping Pill + CAMBIAR VISTA + Exit
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Connection / Latency indicator
-                val isOnline = sessionState.connectionStatus == ConnectionStatus.CONNECTED
-                Surface(
-                    color = VoidBlack.copy(alpha = 0.72f),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        if (isOnline) RacingGreen.copy(alpha = 0.6f) else CautionAmber
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isOnline) Icons.Filled.Wifi else Icons.Filled.WifiOff,
-                            contentDescription = "Estado de red",
-                            tint = if (isOnline) RacingGreen else CautionAmber,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = sessionState.latencyMs?.let { "${it} ms" } ?: "-- ms",
-                            fontFamily = JetBrainsMonoFontFamily,
-                            fontSize = 12.sp,
-                            color = IceWhite
-                        )
-                    }
-                }
-
-                // CAMBIAR VISTA button
-                Button(
-                    onClick = onToggleCamera,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = CockpitSlate.copy(alpha = 0.88f),
-                        contentColor = IceWhite
-                    ),
-                    border = BorderStroke(1.5.dp, ElectricBlue),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .height(48.dp)
-                        .testTag("btn_change_camera")
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Videocam,
-                        contentDescription = stringResource(R.string.btn_change_camera),
-                        tint = ElectricBlue,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    val camLabel = if (hudSnapshot.cameraMode == CameraMode.CLOSE_CHASE) {
-                        stringResource(R.string.camera_close_label)
-                    } else {
-                        stringResource(R.string.camera_wide_label)
-                    }
-                    Text(
-                        text = "${stringResource(R.string.btn_change_camera)} · $camLabel",
-                        fontFamily = OrbitronFontFamily,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // Exit button
+                RaceTelemetry(
+                    hudSnapshot = hudSnapshot,
+                    compact = compact,
+                    modifier = Modifier.weight(1f)
+                )
+                RaceConnectionPill(
+                    status = sessionState.connectionStatus,
+                    latencyMs = sessionState.latencyMs,
+                    showLatency = contentWidth / fontScale >= 460.dp
+                )
+                RaceCameraButton(
+                    mode = hudSnapshot.cameraMode,
+                    showLabel = contentWidth / fontScale >= 590.dp,
+                    onToggleCamera = onToggleCamera
+                )
                 Surface(
                     onClick = onExitToMenu,
                     color = VoidBlack.copy(alpha = 0.78f),
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, DangerCrimson.copy(alpha = 0.6f)),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("btn_race_exit")
+                    modifier = Modifier.size(48.dp).testTag("btn_race_exit")
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -252,165 +167,53 @@ fun RaceHudOverlay(
                     }
                 }
             }
-        }
 
-        // CONNECTION WARNING BANNER (if reconnecting or opponent dropped)
-        val bannerMessage = when {
-            sessionState.connectionStatus == ConnectionStatus.RECONNECTING ->
-                stringResource(R.string.race_reconnecting_banner)
-            sessionState.opponentPlayer?.connected == false && sessionState.phase != RoomPhase.FINISHED ->
-                stringResource(R.string.race_opponent_disconnected)
-            else -> null
-        }
-        if (bannerMessage != null) {
-            Surface(
-                color = CautionAmber.copy(alpha = 0.92f),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 58.dp)
-            ) {
-                Text(
-                    text = bannerMessage,
-                    color = VoidBlack,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                )
-            }
-        }
-
-        // SYNCHRONIZED COUNTDOWN OVERLAY (3 - 2 - 1 - ¡GO!)
-        val countdown = sessionState.countdownValue
-        val showCountdown = sessionState.phase == RoomPhase.COUNTDOWN ||
-            (sessionState.phase == RoomPhase.RACING && countdown == 0 && hudSnapshot.elapsedMs < 1100L)
-        AnimatedVisibility(
-            visible = showCountdown && countdown != null,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.Center)
-        ) {
-            val label = if ((countdown ?: 0) <= 0) stringResource(R.string.hud_go) else countdown.toString()
-            val accent = if ((countdown ?: 0) <= 0) RacingGreen else ElectricBlue
-            Surface(
-                color = VoidBlack.copy(alpha = 0.78f),
-                shape = CircleShape,
-                border = BorderStroke(3.dp, accent),
-                modifier = Modifier
-                    .size(132.dp)
-                    .testTag("hud_countdown")
-            ) {
-                Box(contentAlignment = Alignment.Center) {
+            if (bannerMessage != null) {
+                Surface(
+                    color = CautionAmber.copy(alpha = 0.92f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp)
+                ) {
                     Text(
-                        text = label,
-                        fontFamily = OrbitronFontFamily,
+                        text = bannerMessage,
+                        color = VoidBlack,
                         fontWeight = FontWeight.Bold,
-                        fontSize = if ((countdown ?: 0) <= 0) 36.sp else 54.sp,
-                        color = accent
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                     )
                 }
             }
-        }
 
-        // BOTTOM MULTI-TOUCH ARCADE CONTROLS (hidden once race finishes)
-        if (sessionState.phase != RoomPhase.FINISHED) {
-            // LEFT SIDE: Steering paddles
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(bottom = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            val countdown = sessionState.countdownValue
+            val showCountdown = sessionState.phase == RoomPhase.COUNTDOWN ||
+                (sessionState.phase == RoomPhase.RACING && countdown == 0 && hudSnapshot.elapsedMs < 1100L)
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
             ) {
-                HoldTouchButton(
-                    label = "IZQ",
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
-                    accentColor = ElectricBlue,
-                    testTag = "control_steer_left",
-                    widthDp = 96,
-                    heightDp = 76,
-                    onHoldChange = onSteerLeftChanged
-                )
-                HoldTouchButton(
-                    label = "DER",
-                    icon = Icons.AutoMirrored.Filled.ArrowForward,
-                    accentColor = ElectricBlue,
-                    testTag = "control_steer_right",
-                    widthDp = 96,
-                    heightDp = 76,
-                    onHoldChange = onSteerRightChanged
-                )
-            }
-
-            // RIGHT SIDE: Speedometer + Brake/Reverse + Accelerate pedals
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                // Digital Speedometer
-                Surface(
-                    color = VoidBlack.copy(alpha = 0.78f),
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, TrackBorderBlue)
+                val countdownSize = minOf(maxWidth, maxHeight, 132.dp)
+                AnimatedVisibility(
+                    visible = showCountdown && countdown != null,
+                    enter = fadeIn(),
+                    exit = fadeOut()
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        horizontalAlignment = Alignment.End
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Speed,
-                                contentDescription = null,
-                                tint = ElectricBlue,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = stringResource(R.string.hud_speed_unit),
-                                fontSize = 10.sp,
-                                color = SilverMist,
-                                fontFamily = OrbitronFontFamily
-                            )
-                        }
-                        Text(
-                            text = hudSnapshot.speedKmh.toString().padStart(3, '0'),
-                            fontFamily = JetBrainsMonoFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 28.sp,
-                            color = IceWhite,
-                            modifier = Modifier.testTag("hud_speedometer")
-                        )
-                    }
+                    RaceCountdown(countdown ?: 0, countdownSize)
                 }
+            }
 
-                // Brake / Reverse pedal
-                HoldTouchButton(
-                    label = stringResource(R.string.hud_brake),
-                    icon = null,
-                    accentColor = DangerCrimson,
-                    testTag = "control_brake",
-                    widthDp = 88,
-                    heightDp = 76,
-                    onHoldChange = onBrakeChanged
-                )
-
-                // Accelerate pedal
-                HoldTouchButton(
-                    label = stringResource(R.string.hud_accelerate),
-                    icon = null,
-                    accentColor = ElectricBlue,
-                    testTag = "control_accelerate",
-                    widthDp = 114,
-                    heightDp = 92,
-                    onHoldChange = onThrottleChanged
+            if (sessionState.phase != RoomPhase.FINISHED) {
+                RaceControls(
+                    viewportWidth = contentWidth,
+                    compact = compact,
+                    speedKmh = hudSnapshot.speedKmh,
+                    onSteerLeftChanged = onSteerLeftChanged,
+                    onSteerRightChanged = onSteerRightChanged,
+                    onBrakeChanged = onBrakeChanged,
+                    onThrottleChanged = onThrottleChanged
                 )
             }
         }
 
-        // SYNCHRONIZED RACE RESULTS & REMATCH OVERLAY
-        val results = sessionState.raceResults
         if (sessionState.phase == RoomPhase.FINISHED && results != null) {
             RaceResultsModal(
                 results = results,
@@ -424,22 +227,292 @@ fun RaceHudOverlay(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RaceTelemetry(
+    hudSnapshot: RaceHudSnapshot,
+    compact: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier) {
+        Surface(
+            color = VoidBlack.copy(alpha = 0.78f),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.5.dp, ElectricBlue.copy(alpha = 0.8f))
+        ) {
+            FlowRow(
+                modifier = Modifier.padding(
+                    horizontal = if (compact) 8.dp else 14.dp,
+                    vertical = if (compact) 4.dp else 8.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 12.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "${hudSnapshot.positionRank}°/2",
+                    fontFamily = OrbitronFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = if (hudSnapshot.positionRank == 1) ElectricBlue else SilverMist,
+                    softWrap = false,
+                    modifier = Modifier.align(Alignment.CenterVertically).testTag("hud_position")
+                )
+                if (!compact) TelemetryDivider(Modifier.align(Alignment.CenterVertically))
+                Text(
+                    text = stringResource(R.string.hud_lap_format, hudSnapshot.currentLap, hudSnapshot.totalLaps),
+                    fontFamily = OrbitronFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = IceWhite,
+                    modifier = Modifier.align(Alignment.CenterVertically).testTag("hud_lap_counter")
+                )
+                if (!compact) TelemetryDivider(Modifier.align(Alignment.CenterVertically))
+                Text(
+                    text = formatRaceTime(hudSnapshot.elapsedMs),
+                    fontFamily = JetBrainsMonoFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = NeonCyan,
+                    softWrap = false,
+                    modifier = Modifier.align(Alignment.CenterVertically).testTag("hud_timer")
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TelemetryDivider(modifier: Modifier) {
+    Box(modifier.width(1.dp).height(22.dp).background(TrackBorderBlue))
+}
+
+@Composable
+private fun RaceConnectionPill(status: ConnectionStatus, latencyMs: Int?, showLatency: Boolean) {
+    val isOnline = status == ConnectionStatus.CONNECTED
+    val latencyText = latencyMs?.let { "${it} ms" } ?: "-- ms"
+    Surface(
+        color = VoidBlack.copy(alpha = 0.72f),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, if (isOnline) RacingGreen.copy(alpha = 0.6f) else CautionAmber)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = if (showLatency) 10.dp else 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = if (isOnline) Icons.Filled.Wifi else Icons.Filled.WifiOff,
+                contentDescription = if (showLatency) "Estado de red" else "Estado de red · $latencyText",
+                tint = if (isOnline) RacingGreen else CautionAmber,
+                modifier = Modifier.size(16.dp)
+            )
+            if (showLatency) {
+                Text(latencyText, fontFamily = JetBrainsMonoFontFamily, fontSize = 12.sp, color = IceWhite)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RaceCameraButton(mode: CameraMode, showLabel: Boolean, onToggleCamera: () -> Unit) {
+    val label = stringResource(R.string.btn_change_camera)
+    val modeLabel = stringResource(
+        if (mode == CameraMode.CLOSE_CHASE) R.string.camera_close_label else R.string.camera_wide_label
+    )
+    val shape = RoundedCornerShape(12.dp)
+    val buttonColor = CockpitSlate.copy(alpha = 0.88f)
+    val border = BorderStroke(1.5.dp, ElectricBlue)
+    val modifier = Modifier.testTag("btn_change_camera")
+
+    if (showLabel) {
+        Button(
+            onClick = onToggleCamera,
+            colors = ButtonDefaults.buttonColors(containerColor = buttonColor, contentColor = IceWhite),
+            border = border,
+            shape = shape,
+            modifier = modifier.heightIn(min = 48.dp)
+        ) {
+            Icon(Icons.Filled.Videocam, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("$label · $modeLabel", fontFamily = OrbitronFontFamily, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        }
+    } else {
+        Surface(
+            onClick = onToggleCamera,
+            color = buttonColor,
+            shape = shape,
+            border = border,
+            modifier = modifier.size(48.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Videocam, contentDescription = "$label · $modeLabel", tint = ElectricBlue)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RaceCountdown(value: Int, size: Dp) {
+    val go = value <= 0
+    val label = if (go) stringResource(R.string.hud_go) else value.toString()
+    val accent = if (go) RacingGreen else ElectricBlue
+    val sizeLimit = with(LocalDensity.current) { (size * (if (go) 0.31f else 0.46f)).toSp() }
+    val preferredSize = if (go) 36.sp else 54.sp
+    Surface(
+        color = VoidBlack.copy(alpha = 0.78f),
+        shape = CircleShape,
+        border = BorderStroke(3.dp, accent),
+        modifier = Modifier.size(size).testTag("hud_countdown")
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = label,
+                fontFamily = OrbitronFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = if (sizeLimit < preferredSize) sizeLimit else preferredSize,
+                color = accent,
+                softWrap = false
+            )
+        }
+    }
+}
+
+@Composable
+private fun RaceControls(
+    viewportWidth: Dp,
+    compact: Boolean,
+    speedKmh: Int,
+    onSteerLeftChanged: (Boolean) -> Unit,
+    onSteerRightChanged: (Boolean) -> Unit,
+    onBrakeChanged: (Boolean) -> Unit,
+    onThrottleChanged: (Boolean) -> Unit
+) {
+    val gap = if (compact) ((viewportWidth - 192.dp) / 4f).coerceIn(0.dp, 6.dp) else 12.dp
+    val speedometerWidth = if (compact) 76.dp else 96.dp
+    val minimumControlWidth = 48.dp
+    val minimumButtonsWidth = minimumControlWidth * 4f + gap * 4f
+    val speedometerInline = viewportWidth >= minimumButtonsWidth + gap + speedometerWidth
+    val buttonSpace = viewportWidth - gap * 4f - (if (speedometerInline) speedometerWidth + gap else 0.dp)
+    val widthFraction = ((buttonSpace - minimumControlWidth * 4f).value / (394f - 192f)).coerceIn(0f, 1f)
+    fun controlWidth(preferredWidth: Dp) = minimumControlWidth + (preferredWidth - minimumControlWidth) * widthFraction
+
+    val pedalHeight = if (compact) 60.dp else 76.dp
+    val throttleHeight = if (compact) 68.dp else 92.dp
+
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (!speedometerInline) {
+            RaceSpeedometer(speedKmh, speedometerWidth, Modifier.align(Alignment.End))
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            HoldTouchButton(
+                label = "IZQ",
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                accentColor = ElectricBlue,
+                testTag = "control_steer_left",
+                width = controlWidth(96.dp),
+                height = pedalHeight,
+                compact = compact,
+                onHoldChange = onSteerLeftChanged
+            )
+            HoldTouchButton(
+                label = "DER",
+                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                accentColor = ElectricBlue,
+                testTag = "control_steer_right",
+                width = controlWidth(96.dp),
+                height = pedalHeight,
+                compact = compact,
+                onHoldChange = onSteerRightChanged
+            )
+            Spacer(Modifier.weight(1f))
+            if (speedometerInline) RaceSpeedometer(speedKmh, speedometerWidth)
+            HoldTouchButton(
+                label = stringResource(R.string.hud_brake),
+                icon = null,
+                accentColor = DangerCrimson,
+                testTag = "control_brake",
+                width = controlWidth(88.dp),
+                height = pedalHeight,
+                compact = compact,
+                onHoldChange = onBrakeChanged
+            )
+            HoldTouchButton(
+                label = stringResource(R.string.hud_accelerate),
+                icon = null,
+                accentColor = ElectricBlue,
+                testTag = "control_accelerate",
+                width = controlWidth(114.dp),
+                height = throttleHeight,
+                compact = compact,
+                onHoldChange = onThrottleChanged
+            )
+        }
+    }
+}
+
+@Composable
+private fun RaceSpeedometer(speedKmh: Int, width: Dp, modifier: Modifier = Modifier) {
+    val digits = speedKmh.toString().padStart(3, '0')
+    val speedUnit = stringResource(R.string.hud_speed_unit)
+    val fontSize = fittingLabelSize("0".repeat(digits.length), width - 16.dp, 28.sp, JetBrainsMonoFontFamily)
+    val unitSize = fittingLabelSize(speedUnit, width - 34.dp, 10.sp, OrbitronFontFamily, FontWeight.Normal)
+    Surface(
+        color = VoidBlack.copy(alpha = 0.78f),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, TrackBorderBlue),
+        modifier = modifier.width(width)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Speed, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = speedUnit,
+                    fontSize = unitSize,
+                    color = SilverMist,
+                    fontFamily = OrbitronFontFamily,
+                    softWrap = false
+                )
+            }
+            Text(
+                text = digits,
+                fontFamily = JetBrainsMonoFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = fontSize,
+                color = IceWhite,
+                softWrap = false,
+                modifier = Modifier.testTag("hud_speedometer")
+            )
+        }
+    }
+}
+
 @Composable
 private fun HoldTouchButton(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector?,
     accentColor: Color,
     testTag: String,
-    widthDp: Int,
-    heightDp: Int,
+    width: Dp,
+    height: Dp,
+    compact: Boolean,
     onHoldChange: (Boolean) -> Unit
 ) {
     var pressed by remember { mutableStateOf(false) }
+    val currentOnHoldChange by rememberUpdatedState(onHoldChange)
+    val labelSize = fittingLabelSize(label, width - 12.dp, 12.sp, OrbitronFontFamily)
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(width = widthDp.dp, height = heightDp.dp)
+            .size(width = width, height = height)
             .clip(RoundedCornerShape(16.dp))
             .background(
                 if (pressed) {
@@ -458,10 +531,13 @@ private fun HoldTouchButton(
                     while (true) {
                         awaitFirstDown(requireUnconsumed = false)
                         pressed = true
-                        onHoldChange(true)
-                        waitForUpOrCancellation()
-                        pressed = false
-                        onHoldChange(false)
+                        currentOnHoldChange(true)
+                        try {
+                            waitForUpOrCancellation()
+                        } finally {
+                            pressed = false
+                            currentOnHoldChange(false)
+                        }
                     }
                 }
             }
@@ -473,14 +549,16 @@ private fun HoldTouchButton(
                     imageVector = icon,
                     contentDescription = label,
                     tint = if (pressed) VoidBlack else IceWhite,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(if (compact) 20.dp else 28.dp)
                 )
             }
             Text(
                 text = label,
                 fontFamily = OrbitronFontFamily,
                 fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
+                fontSize = labelSize,
+                lineHeight = labelSize * 1.2f,
+                softWrap = false,
                 color = if (pressed) VoidBlack else IceWhite
             )
         }
@@ -488,6 +566,23 @@ private fun HoldTouchButton(
 }
 
 @Composable
+private fun fittingLabelSize(
+    text: String,
+    width: Dp,
+    fontSize: TextUnit,
+    fontFamily: FontFamily,
+    fontWeight: FontWeight = FontWeight.Bold
+): TextUnit {
+    val style = TextStyle(fontSize = fontSize, fontFamily = fontFamily, fontWeight = fontWeight)
+    val measuredWidth = rememberTextMeasurer().measure(text, style, maxLines = 1, softWrap = false).size.width
+    return with(LocalDensity.current) {
+        val fraction = (width.toPx() / measuredWidth.coerceAtLeast(1)).coerceIn(0f, 1f)
+        (fontSize.toDp() * fraction).toSp()
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun RaceResultsModal(
     results: RaceResultsState,
     localPlayerId: String?,
@@ -499,97 +594,114 @@ private fun RaceResultsModal(
     val winnerLabel = if (results.winnerSlot == 0) "JUGADOR 1" else "JUGADOR 2"
     val didLocalWin = results.winnerPlayerId == localPlayerId
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(VoidBlack.copy(alpha = 0.78f)),
         contentAlignment = Alignment.Center
     ) {
+        val fontScale = LocalDensity.current.fontScale
+        val compact = maxWidth / fontScale < 620.dp || maxHeight < 350.dp
+        val margin = if (compact) 8.dp else 10.dp
+        val panelPadding = if (compact) 12.dp else 22.dp
+        val gap = if (compact) 8.dp else 12.dp
         Surface(
             color = AsphaltNavy,
             shape = RoundedCornerShape(20.dp),
             border = BorderStroke(2.dp, ElectricBlue),
             modifier = Modifier
-                .fillMaxWidth(0.76f)
+                .padding(margin)
+                .fillMaxWidth(if (compact) 1f else 0.76f)
                 .testTag("race_results_modal")
         ) {
             Column(
-                modifier = Modifier.padding(22.dp),
+                modifier = Modifier.padding(panelPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(gap)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(gap)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.EmojiEvents,
-                        contentDescription = null,
-                        tint = if (didLocalWin) RacingGreen else CautionAmber,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.results_winner_banner, winnerLabel),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = if (didLocalWin) RacingGreen else ElectricBlue
-                    )
-                }
-
-                // Both participants' results
-                results.players.forEachIndexed { idx, p ->
-                    val playerLabel = if (p.slot == 0) "JUGADOR 1" else "JUGADOR 2"
-                    val isMe = p.playerId == localPlayerId
-                    val carName = VehicleCatalog.getVehicle(p.vehicleId).displayName
-                    val charName = CharacterCatalog.getCharacter(p.characterId).displayName
-                    Surface(
-                        color = if (isMe) CockpitSlate else VoidBlack.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (p.playerId == results.winnerPlayerId) ElectricBlue else TrackBorderBlue
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Icon(
+                            imageVector = Icons.Filled.EmojiEvents,
+                            contentDescription = null,
+                            tint = if (didLocalWin) RacingGreen else CautionAmber,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.results_winner_banner, winnerLabel),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = if (didLocalWin) RacingGreen else ElectricBlue
+                        )
+                    }
+
+                    // Both participants' results
+                    results.players.forEachIndexed { idx, p ->
+                        val playerLabel = if (p.slot == 0) "JUGADOR 1" else "JUGADOR 2"
+                        val isMe = p.playerId == localPlayerId
+                        val carName = VehicleCatalog.getVehicle(p.vehicleId).displayName
+                        val charName = CharacterCatalog.getCharacter(p.characterId).displayName
+                        Surface(
+                            color = if (isMe) CockpitSlate else VoidBlack.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                if (p.playerId == results.winnerPlayerId) ElectricBlue else TrackBorderBlue
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${idx + 1}° · $playerLabel" + if (isMe) " (TÚ)" else "",
+                                        fontFamily = OrbitronFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = IceWhite
+                                    )
+                                    Text(
+                                        text = "$carName · $charName · ${p.completedLaps}/3 vueltas",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = SilverMist
+                                    )
+                                }
                                 Text(
-                                    text = "${idx + 1}° · $playerLabel" + if (isMe) " (TÚ)" else "",
-                                    fontFamily = OrbitronFontFamily,
+                                    text = if (p.finished) formatRaceTime(p.totalTimeMs) else "DNF",
+                                    fontFamily = JetBrainsMonoFontFamily,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    color = IceWhite
-                                )
-                                Text(
-                                    text = "$carName · $charName · ${p.completedLaps}/3 vueltas",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SilverMist
+                                    fontSize = 16.sp,
+                                        softWrap = false,
+                                    color = NeonCyan
                                 )
                             }
-                            Text(
-                                text = if (p.finished) formatRaceTime(p.totalTimeMs) else "DNF",
-                                fontFamily = JetBrainsMonoFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = NeonCyan
-                            )
                         }
                     }
                 }
 
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(gap),
+                    verticalArrangement = Arrangement.spacedBy(gap),
+                    maxItemsInEachRow = if (maxWidth / fontScale < 320.dp) 1 else 2
                 ) {
                     OutlinedButton(
                         onClick = onExitToMenu,
                         border = BorderStroke(1.5.dp, TrackBorderBlue),
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("btn_results_menu")
                     ) {
                         Text(
@@ -609,7 +721,7 @@ private fun RaceResultsModal(
                         ),
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("btn_results_rematch")
                     ) {
                         Icon(

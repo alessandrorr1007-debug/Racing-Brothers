@@ -8,20 +8,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -31,7 +26,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,22 +36,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.racingbrothers.characters.CharacterCatalog
 import com.example.racingbrothers.ui.components.Character3DPreview
 import com.example.racingbrothers.vehicles.VehicleCatalog
-import com.example.ui.theme.AsphaltNavy
-import com.example.ui.theme.CockpitSlate
 import com.example.ui.theme.ElectricBlue
 import com.example.ui.theme.IceWhite
 import com.example.ui.theme.JetBrainsMonoFontFamily
-import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.OrbitronFontFamily
 import com.example.ui.theme.SilverMist
 import com.example.ui.theme.TrackBorderBlue
@@ -79,278 +70,203 @@ fun CharacterSelectionScreen(
     val currentCharacter = characters[selectedIndex]
     val pairedVehicle = remember(pairedVehicleId) { VehicleCatalog.getVehicle(pairedVehicleId) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(VoidBlack, AsphaltNavy)))
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Top bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+    SelectionScreenLayout(
+        title = stringResource(R.string.character_selection_title),
+        roomCode = roomCode,
+        backTag = "btn_char_back",
+        onBack = onBack,
+        previewWeight = 0.52f,
+        previewBorderColor = Color(currentCharacter.primaryColorArgb).copy(alpha = 0.7f),
+        preview = {
+            Character3DPreview(
+                character = currentCharacter,
+                autoRotate = false,
+                interactiveDrag = true,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("character_3d_preview")
+            )
+
+            Surface(
+                color = VoidBlack.copy(alpha = 0.72f),
+                shape = CircleShape,
+                border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.7f)),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 10.dp)
+                    .size(48.dp)
             ) {
-                OutlinedButton(
-                    onClick = onBack,
-                    border = BorderStroke(1.dp, TrackBorderBlue),
-                    modifier = Modifier
-                        .height(48.dp)
-                        .testTag("btn_char_back")
+                IconButton(
+                    onClick = {
+                        selectedIndex = (selectedIndex - 1 + characters.size) % characters.size
+                    },
+                    modifier = Modifier.testTag("btn_prev_character")
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = IceWhite)
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.btn_back), color = IceWhite, fontSize = 12.sp)
-                }
-
-                Text(
-                    text = stringResource(R.string.character_selection_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = ElectricBlue
-                )
-
-                if (roomCode != null) {
-                    Surface(
-                        color = CockpitSlate,
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.6f))
-                    ) {
-                        Text(
-                            text = "SALA $roomCode",
-                            fontFamily = JetBrainsMonoFontFamily,
-                            fontSize = 12.sp,
-                            color = NeonCyan,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-                    }
-                } else {
-                    Spacer(Modifier.width(90.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = "Piloto anterior",
+                        tint = IceWhite
+                    )
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Surface(
+                color = VoidBlack.copy(alpha = 0.72f),
+                shape = CircleShape,
+                border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.7f)),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 10.dp)
+                    .size(48.dp)
+            ) {
+                IconButton(
+                    onClick = {
+                        selectedIndex = (selectedIndex + 1) % characters.size
+                    },
+                    modifier = Modifier.testTag("btn_next_character")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Siguiente piloto",
+                        tint = IceWhite
+                    )
+                }
+            }
 
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(start = 8.dp, top = 10.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                // Interactive 3D Cartoon Driver Viewport
-                Surface(
-                    color = CockpitSlate.copy(alpha = 0.55f),
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(1.5.dp, Color(currentCharacter.primaryColorArgb).copy(alpha = 0.7f)),
-                    modifier = Modifier
-                        .weight(0.52f)
-                        .fillMaxHeight()
+                Icon(
+                    imageVector = Icons.Filled.TouchApp,
+                    contentDescription = null,
+                    tint = SilverMist,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = stringResource(R.string.car_drag_hint),
+                    fontSize = 11.sp,
+                    color = SilverMist,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        overview = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        Character3DPreview(
-                            character = currentCharacter,
-                            autoRotate = false,
-                            interactiveDrag = true,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .testTag("character_3d_preview")
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(Color(currentCharacter.primaryColorArgb))
+                    )
+                    Text(
+                        text = currentCharacter.styleTag.uppercase(),
+                        fontFamily = JetBrainsMonoFontFamily,
+                        fontSize = 11.sp,
+                        color = ElectricBlue
+                    )
+                }
+                Text(
+                    text = "${currentCharacter.displayName.uppercase()} \"${currentCharacter.callsign}\"",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = IceWhite,
+                    modifier = Modifier.testTag("character_name")
+                )
+                Text(
+                    text = currentCharacter.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SilverMist
+                )
+
+                Spacer(Modifier.height(4.dp))
+
+                // Paired car indicator
+                Surface(
+                    color = VoidBlack.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, TrackBorderBlue)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DirectionsCar,
+                            contentDescription = null,
+                            tint = ElectricBlue,
+                            modifier = Modifier.size(18.dp)
                         )
-
-                        Surface(
-                            color = VoidBlack.copy(alpha = 0.72f),
-                            shape = CircleShape,
-                            border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.7f)),
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .padding(start = 10.dp)
-                                .size(48.dp)
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    selectedIndex = (selectedIndex - 1 + characters.size) % characters.size
-                                },
-                                modifier = Modifier.testTag("btn_prev_character")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                    contentDescription = "Piloto anterior",
-                                    tint = IceWhite
-                                )
-                            }
-                        }
-
-                        Surface(
-                            color = VoidBlack.copy(alpha = 0.72f),
-                            shape = CircleShape,
-                            border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.7f)),
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(end = 10.dp)
-                                .size(48.dp)
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    selectedIndex = (selectedIndex + 1) % characters.size
-                                },
-                                modifier = Modifier.testTag("btn_next_character")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = "Siguiente piloto",
-                                    tint = IceWhite
-                                )
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.TouchApp,
-                                contentDescription = null,
-                                tint = SilverMist,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = stringResource(R.string.car_drag_hint),
-                                fontSize = 11.sp,
-                                color = SilverMist
-                            )
-                        }
+                        Text(
+                            text = stringResource(R.string.character_paired_with, pairedVehicle.displayName),
+                            fontSize = 12.sp,
+                            color = IceWhite
+                        )
                     }
                 }
-
-                // Right Column: Driver Bio, Selector Cards & Confirm
-                Surface(
-                    color = CockpitSlate.copy(alpha = 0.85f),
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(1.dp, TrackBorderBlue),
-                    modifier = Modifier
-                        .weight(0.48f)
-                        .fillMaxHeight()
-                ) {
-                    Column(
+            }
+        },
+        options = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                characters.forEachIndexed { idx, ch ->
+                    val selected = idx == selectedIndex
+                    Surface(
+                        color = if (selected) ElectricBlue.copy(alpha = 0.22f) else VoidBlack.copy(alpha = 0.55f),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(
+                            width = if (selected) 1.5.dp else 1.dp,
+                            color = if (selected) ElectricBlue else TrackBorderBlue
+                        ),
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(18.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .clickable { selectedIndex = idx }
+                            .testTag("char_card_${ch.id}")
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(12.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(currentCharacter.primaryColorArgb))
-                                )
-                                Text(
-                                    text = currentCharacter.styleTag.uppercase(),
-                                    fontFamily = JetBrainsMonoFontFamily,
-                                    fontSize = 11.sp,
-                                    color = ElectricBlue
-                                )
-                            }
-                            Text(
-                                text = "${currentCharacter.displayName.uppercase()} \"${currentCharacter.callsign}\"",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = IceWhite,
-                                modifier = Modifier.testTag("character_name")
-                            )
-                            Text(
-                                text = currentCharacter.description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = SilverMist
-                            )
-
-                            Spacer(Modifier.height(4.dp))
-
-                            // Paired car indicator
-                            Surface(
-                                color = VoidBlack.copy(alpha = 0.6f),
-                                shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, TrackBorderBlue)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.DirectionsCar,
-                                        contentDescription = null,
-                                        tint = ElectricBlue,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.character_paired_with, pairedVehicle.displayName),
-                                        fontSize = 12.sp,
-                                        color = IceWhite
-                                    )
-                                }
-                            }
-                        }
-
-                        // Quick driver switcher row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            characters.forEachIndexed { idx, ch ->
-                                val selected = idx == selectedIndex
-                                Surface(
-                                    color = if (selected) ElectricBlue.copy(alpha = 0.22f) else VoidBlack.copy(alpha = 0.55f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = BorderStroke(
-                                        width = if (selected) 1.5.dp else 1.dp,
-                                        color = if (selected) ElectricBlue else TrackBorderBlue
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp)
-                                        .clickable { selectedIndex = idx }
-                                        .testTag("char_card_${ch.id}")
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = ch.displayName.uppercase(),
-                                            fontFamily = OrbitronFontFamily,
-                                            fontSize = 12.sp,
-                                            color = if (selected) IceWhite else SilverMist
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Confirm character -> Lobby
-                        Button(
-                            onClick = { onConfirmCharacter(currentCharacter.id) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ElectricBlue,
-                                contentColor = VoidBlack
-                            ),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .testTag("btn_confirm_character")
+                        Box(
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = stringResource(R.string.btn_confirm_character),
-                                style = MaterialTheme.typography.labelLarge
+                                text = ch.displayName.uppercase(),
+                                fontFamily = OrbitronFontFamily,
+                                fontSize = 12.sp,
+                                color = if (selected) IceWhite else SilverMist,
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
                 }
             }
+        },
+        confirm = {
+            Button(
+                onClick = { onConfirmCharacter(currentCharacter.id) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ElectricBlue,
+                    contentColor = VoidBlack
+                ),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp)
+                    .testTag("btn_confirm_character")
+            ) {
+                Text(
+                    text = stringResource(R.string.btn_confirm_character),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
         }
-    }
+    )
 }
