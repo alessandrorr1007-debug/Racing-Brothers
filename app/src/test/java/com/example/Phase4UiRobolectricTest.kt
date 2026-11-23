@@ -1,5 +1,6 @@
 package com.example
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextContains
@@ -8,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import com.example.racingbrothers.networking.ConnectionStatus
 import com.example.racingbrothers.networking.MultiplayerUiState
 import com.example.racingbrothers.networking.PlayerSlotState
@@ -123,30 +125,32 @@ class Phase4UiRobolectricTest {
         // Switch directly via bottom 4 vehicle cards and inline driver selector
         composeRule.onNodeWithTag("car_dot_formula_aero").assertIsDisplayed().performClick()
         composeRule.mainClock.advanceTimeBy(120L)
+        composeRule.mainClock.advanceTimeByFrame()
         composeRule.onNodeWithTag("car_model_name").assertTextContains("FORMULA AERO", substring = true)
 
         composeRule.onNodeWithTag("garage_driver_kira_apex").assertIsDisplayed().performClick()
         composeRule.mainClock.advanceTimeBy(120L)
+        composeRule.mainClock.advanceTimeByFrame()
         assertEquals("kira_apex", selectedDriver)
 
-        // Open personalization tabs and customize rims, spoiler, and decals
-        composeRule.onNodeWithTag("btn_customize_car").performScrollTo().performClick()
-        composeRule.mainClock.advanceTimeBy(120L)
+        // Open personalization tabs and customize rims, spoiler, and decals.
+        // The 3D preview rotates forever with the test clock paused, so performScrollTo()
+        // cannot settle. These controls live in scrollable panes; invoke their semantics
+        // OnClick actions directly instead of injecting touch input at offscreen coordinates.
+        fun clickBySemantics(tag: String) {
+            composeRule.onNodeWithTag(tag).performSemanticsAction(SemanticsActions.OnClick)
+            composeRule.mainClock.advanceTimeBy(120L)
+            composeRule.mainClock.advanceTimeByFrame()
+        }
 
-        composeRule.onNodeWithTag("customize_tab_rims").assertIsDisplayed().performClick()
-        composeRule.mainClock.advanceTimeBy(120L)
-        composeRule.onNodeWithTag("rims_option_1").assertIsDisplayed().performClick()
-
-        composeRule.onNodeWithTag("customize_tab_spoiler").assertIsDisplayed().performClick()
-        composeRule.mainClock.advanceTimeBy(120L)
-        composeRule.onNodeWithTag("spoiler_option_2").assertIsDisplayed().performClick()
-
-        composeRule.onNodeWithTag("customize_tab_decals").assertIsDisplayed().performClick()
-        composeRule.mainClock.advanceTimeBy(120L)
-        composeRule.onNodeWithTag("decals_option_2").assertIsDisplayed().performClick()
-
-        composeRule.onNodeWithTag("btn_save_appearance").assertIsDisplayed().performClick()
-        composeRule.mainClock.advanceTimeBy(120L)
+        clickBySemantics("btn_customize_car")
+        clickBySemantics("customize_tab_rims")
+        clickBySemantics("rims_option_1")
+        clickBySemantics("customize_tab_spoiler")
+        clickBySemantics("spoiler_option_2")
+        clickBySemantics("customize_tab_decals")
+        clickBySemantics("decals_option_2")
+        clickBySemantics("btn_save_appearance")
 
         assertEquals("formula_aero", savedVehicle)
         assertEquals("electric_cobalt", savedColor)
@@ -232,8 +236,8 @@ class Phase4UiRobolectricTest {
 
         composeRule.onNodeWithText("Racing Brothers Team").assertIsDisplayed()
         composeRule.onNodeWithText("alessandrorr1007-debug").assertIsDisplayed()
-        composeRule.onNodeWithText("Kotlin").assertIsDisplayed()
-        composeRule.onNodeWithText("libGDX").assertIsDisplayed()
+        composeRule.onNodeWithText("Kotlin").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("libGDX").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("btn_credits_back").assertIsDisplayed().performClick()
         composeRule.runOnIdle { assertTrue(backed) }
     }
