@@ -1,6 +1,6 @@
 # RACING BROTHERS V1
 
-Videojuego Android nativo de carreras arcade **3D multijugador online 1 vs 1** en salas privadas por código, **sin cuentas de usuario**, desarrollado 100 % con tecnologías gratuitas.
+Videojuego Android nativo de carreras arcade **3D multijugador online de 2 a 4 jugadores** en salas privadas por código, **sin cuentas de usuario**, desarrollado 100 % con tecnologías gratuitas.
 
 ---
 
@@ -42,10 +42,10 @@ RacingBrothers/
 │   ├── package.json                          # Scripts dev, test y deploy
 │   ├── src/
 │   │   ├── index.mjs                         # Worker router (/health, /api/rooms, /ws/:roomCode)
-│   │   ├── rooms/RaceRoomDO.mjs              # Durable Object por sala (cupo 2, checkpoints, ganador, revancha)
+│   │   ├── rooms/RaceRoomDO.mjs              # Durable Object por sala (cupo 2-4, checkpoints, ganador, revancha)
 │   │   ├── protocol/messages.mjs             # Contrato JSON v1 y checkpoints sincronizados
 │   │   └── validation/validator.mjs          # Validación, rate limiting y anti-trampas
-│   └── tests/protocol.test.mjs               # Pruebas automatizadas WebSocket con 2 clientes
+│   └── tests/                                # Pruebas unitarias y E2E WebSocket con 2, 3 y 4 clientes
 ├── docs/
 │   ├── PROTOCOL.md                           # Especificación del protocolo JSON v1
 │   └── CLOUDFLARE_DEPLOY.md                  # Guía de despliegue gratuito en Cloudflare
@@ -58,8 +58,8 @@ RacingBrothers/
 ## Requisitos de Desarrollo
 
 - **Android Studio** (o JDK 17+ con Android SDK 36 y Gradle).
-- **Node.js 20+** para probar y desplegar el backend en Cloudflare Workers.
-- Dos celulares Android con acceso a internet (Android 7.0 / API 24 o superior).
+- **Node.js 22.12+** para probar y desplegar el backend en Cloudflare Workers (Wrangler 4).
+- De **2 a 4 celulares Android** con acceso a internet (Android 7.0 / API 24 o superior).
 
 ---
 
@@ -71,9 +71,13 @@ Consulta la guía completa en [`docs/CLOUDFLARE_DEPLOY.md`](docs/CLOUDFLARE_DEPL
 cd backend
 npm install
 npm test
+npm run check          # wrangler deploy --dry-run
+npm run test:e2e       # contra RB_BASE_URL (por defecto, producción)
 npx wrangler login
 npx wrangler deploy
 ```
+
+`npm run test:e2e` levanta clientes WebSocket reales y verifica salas de **2, 3 y 4 jugadores** (slots, lobby, reconexión, inicio, telemetría, vueltas, ganador y revancha). Para probar un Worker local: `RB_BASE_URL=http://127.0.0.1:8787 npm run test:e2e`.
 
 > **URL del servidor configurada**: `https://racing-brothers.alessandrorr1007.workers.dev` (`wss://racing-brothers.alessandrorr1007.workers.dev`). Mientras el Worker no haya sido publicado con `npx wrangler deploy` en tu cuenta de Cloudflare, las peticiones contra la URL remota seguirán viendo la plantilla inicial hasta completar el despliegue.
 
@@ -102,7 +106,7 @@ Cada push a la rama `main` (o ejecución manual desde GitHub) ejecuta el workflo
 1. Abre el repositorio en GitHub: [alessandrorr1007-debug/Racing-Brothers](https://github.com/alessandrorr1007-debug/Racing-Brothers).
 2. Ve a **GitHub → Actions → Android Build → Última ejecución exitosa → Artifacts**.
 3. Haz clic en **`Racing-Brothers-Android-APK`** para descargar el archivo `.zip`.
-4. Descomprime el `.zip` para obtener `app-debug.apk` e instálalo en ambos celulares Android (habilitando *"Instalar apps desconocidas"* si Android lo solicita).
+4. Descomprime el `.zip` para obtener `app-debug.apk` e instálalo en cada celular Android participante (2 a 4; habilita *"Instalar apps desconocidas"* si Android lo solicita).
 
 ### Descarga directa desde Releases
 
@@ -126,26 +130,29 @@ gradle :app:assembleDebug
 # app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Instalar en Dos Celulares mediante ADB
+### Instalar en 2 a 4 Celulares mediante ADB
 
 ```bash
 adb devices
+# Repite para cada dispositivo ( IDs devueltos por adb devices )
 adb -s <ID_CELULAR_1> install -r app/build/outputs/apk/debug/app-debug.apk
 adb -s <ID_CELULAR_2> install -r app/build/outputs/apk/debug/app-debug.apk
+adb -s <ID_CELULAR_3> install -r app/build/outputs/apk/debug/app-debug.apk
+adb -s <ID_CELULAR_4> install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-También puedes transferir `app-debug.apk` a ambos celulares e instalarlo manualmente habilitando *"Instalar apps desconocidas"*.
+También puedes transferir `app-debug.apk` a cada celular e instalarlo manualmente habilitando *"Instalar apps desconocidas"*.
 
 ---
 
-## Cómo Probar con Dos Celulares
+## Cómo Probar con 2, 3 o 4 Celulares
 
-1. Asegúrate de tener el Worker desplegado en Cloudflare y la misma URL `wss://...` guardada en ambos teléfonos.
-2. **Celular 1**: Pulsa **CREAR SALA**, copia o comparte el código de 6 caracteres, pulsa **ELEGIR AUTO**, selecciona auto/color, elige piloto y entra al Lobby.
-3. **Celular 2**: Pulsa **UNIRSE A SALA**, escribe el código de 6 caracteres, elige auto/color y piloto para entrar al mismo Lobby.
-4. Ambos celulares deben pulsar **LISTO**.
-5. **Celular 1 (Anfitrión)**: Pulsa **INICIAR CARRERA**.
-6. Ambos reciben la cuenta regresiva sincronizada `3, 2, 1, ¡GO!` y compiten 3 vueltas en el Circuito Neon Bay con botón **CAMBIAR VISTA** (Cercana / Lejana), resultados verificados por servidor y opción de **REVANCHA** (requiere confirmación de ambos).
+1. Asegúrate de tener el Worker desplegado en Cloudflare y la misma URL `wss://...` guardada en todos los teléfonos.
+2. **Celular anfitrión**: Pulsa **CREAR SALA**, elige **2, 3 o 4 jugadores**, copia o comparte el código de 6 dígitos, selecciona auto/color y piloto, y entra al Lobby.
+3. **Celulares invitados**: Pulsa **UNIRSE A SALA**, escribe el mismo código, elige auto/color y piloto para entrar al mismo Lobby. El anfitrión ve a todos los participantes en sus puestos 0..N-1.
+4. Todos los celulares deben pulsar **LISTO**.
+5. **Celular anfitrión**: Pulsa **INICIAR CARRERA** (solo él puede hacerlo; la carrera no arranca hasta que estén todos conectados y listos).
+6. Todos reciben la cuenta regresiva sincronizada `3, 2, 1, ¡GO!` y compiten 3 vueltas en el Circuito Neon Bay con botón **CAMBIAR VISTA** (Cercana / Lejana), resultados verificados por servidor y opción de **REVANCHA** (requiere la confirmación de todos).
 
 ---
 
@@ -172,15 +179,15 @@ bash scripts/run_all_tests.sh
 | --- | --- | --- |
 | Muestra **"Servidor no configurado"** | No se ha configurado la URL WSS del Worker. | Despliega `backend/` en Cloudflare y guarda la URL `wss://...` en Ajustes. |
 | **"URL inválida: usa wss://"** | Se ingresó `ws://` para un dominio público. | En producción solo se permite `wss://` o `https://` (`ws://` únicamente para `localhost` / `10.0.2.2`). |
-| **"La sala está llena"** | Un tercer celular intentó conectarse. | Cada sala está limitada estrictamente a 2 jugadores. Crea una nueva sala. |
-| **El botón INICIAR CARRERA está deshabilitado** | Falta el segundo jugador o alguno no marcó LISTO. | Espera a que ambos estén conectados y en estado LISTO. |
+| **"La sala está llena"** | Se superó la capacidad elegida al crear la sala. | La capacidad es 2, 3 o 4 según `maxPlayers`. Crea una nueva sala con más cupo. |
+| **El botón INICIAR CARRERA está deshabilitado** | Faltan jugadores o alguno no marcó LISTO. | Espera a que todos los participantes requeridos estén conectados y en estado LISTO. |
 | **Error de librería nativa libGDX** | Faltó ejecutar la extracción de `.so`. | Ejecuta `gradle :app:copyGdxNatives :app:assembleDebug`. |
 
 ---
 
 ## Limitaciones de la Versión 1 (V1)
 
-- Exactamente **2 jugadores** por sala privada (sin matchmaking público ni modo individual).
+- De **2 a 4 jugadores** por sala privada (sin matchmaking público ni modo individual).
 - **1 circuito inicial** (*Circuito Neon Bay*, 3 vueltas, 6 checkpoints validados).
 - **Rendimiento equivalente** en los 4 vehículos para garantizar equilibrio competitivo en V1.
 - Modelos 3D procedurales de baja geometría optimizados para celulares gama media (sin descargas externas).

@@ -6,7 +6,7 @@ import { generateRoomCode, isValidRoomCode } from "../src/validation/validator.m
 
 /**
  * In-memory faithful harness for Cloudflare WebSocketPair + DurableObjectNamespace + SQLite stub.
- * Enables running real 2-client WebSocket integration tests locally with `node --test`.
+ * Enables running N-client (2/3/4) WebSocket integration tests locally with `node --test`.
  */
 class MockSocket {
   constructor() {
@@ -395,7 +395,10 @@ for (const maxPlayers of [3, 4]) {
     sendMsg(host, "join_room", { roomCode });
     assert.equal(lastMsgOfType(host, "room_created")?.maxPlayers, maxPlayers);
     sendMsg(host, "start_race");
-    assert.equal(lastMsgOfType(host, "error")?.code, "NEED_ALL_PLAYERS");
+    const needAll = lastMsgOfType(host, "error");
+    assert.equal(needAll?.code, "NEED_ALL_PLAYERS");
+    assert.equal(needAll.required, maxPlayers);
+    assert.equal(needAll.current, 1);
 
     const clients = [host];
     for (let slot = 1; slot < maxPlayers; slot++) {
@@ -418,6 +421,10 @@ for (const maxPlayers of [3, 4]) {
     sendMsg(replacement, "join_room", { roomCode });
     assert.equal(lastMsgOfType(replacement, "room_joined")?.slot, maxPlayers - 1);
     clients[clients.length - 1] = replacement;
+    sendMsg(host, "start_race");
+    const notReady = lastMsgOfType(host, "error");
+    assert.equal(notReady?.code, "PLAYERS_NOT_READY");
+    assert.match(notReady.message, new RegExp(`Los ${maxPlayers} jugadores deben marcar LISTO`));
     for (const client of clients) sendMsg(client, "set_ready", { ready: true });
     const requestedTrack = maxPlayers === 3 ? "mountain" : "random";
     sendMsg(host, "start_race", { trackId: requestedTrack });

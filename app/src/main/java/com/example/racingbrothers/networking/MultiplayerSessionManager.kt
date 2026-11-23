@@ -103,6 +103,10 @@ class MultiplayerSessionManager(
     @Volatile
     private var localCharacterId: String = CharacterCatalog.characters.first().id
 
+    /** Capacidad solicitada al crear la sala; se contrasta con el handshake del servidor. */
+    @Volatile
+    private var expectedCapacityForCreation: Int? = null
+
     private val outboundSeq = AtomicLong(0L)
     private val connectionGeneration = AtomicLong(0L)
     private var reconnectAttempts: Int = 0
@@ -265,6 +269,7 @@ class MultiplayerSessionManager(
             is ServerEndpointValidation.Valid -> {
                 closeSocketInternal(intentional = true)
                 sessionTokenInMemory = null
+                expectedCapacityForCreation = roomCapacity
                 _state.update {
                     it.copy(
                         connectionStatus = ConnectionStatus.CONNECTING,
@@ -343,6 +348,7 @@ class MultiplayerSessionManager(
             is ServerEndpointValidation.Valid -> {
                 closeSocketInternal(intentional = true)
                 sessionTokenInMemory = null
+                expectedCapacityForCreation = null
                 _state.update {
                     it.copy(
                         connectionStatus = ConnectionStatus.CONNECTING,
@@ -353,7 +359,8 @@ class MultiplayerSessionManager(
                         countdownValue = null,
                         errorMessage = null,
                         roomClosedReason = null,
-                        raceResults = null
+                        raceResults = null,
+                        roomCapacity = ProtocolConstants.DEFAULT_ROOM_CAPACITY
                     )
                 }
                 connectToRoomSocket(
@@ -423,7 +430,7 @@ class MultiplayerSessionManager(
                             "ROOM_NOT_FOUND" -> "La sala no existe o el código es incorrecto."
                             "ROOM_CLOSED" -> "Esta sala ya fue cerrada."
                             "INVALID_ROOM_CODE" -> "El código de sala no coincide."
-                            "ROOM_FULL" -> "La sala está llena (máximo 2 jugadores)."
+                            "ROOM_FULL" -> "La sala está llena (máximo ${_state.value.roomCapacity} jugadores)."
                             "RACE_IN_PROGRESS" -> "La carrera ya ha comenzado."
                             else -> "No se pudo conectar con la sala."
                         }
@@ -507,6 +514,27 @@ class MultiplayerSessionManager(
                 val isHost = json.optBoolean("isHost", slot == 0)
                 val players = ProtocolCodec.parsePlayersArray(json.optJSONArray("players"))
                 val phase = RoomPhase.fromWire(json.optString("phase", "LOBBY"))
+
+                // Si esta app creó la sala, el servidor debe confirmar la capacidad pedida.
+                expectedCapacityForCreation?.let { expected ->
+                    if (json.has("maxPlayers")) {
+                        val serverCapacity = json.optInt("maxPlayers", -1)
+                        if (serverCapacity != expected) {
+                            expectedCapacityForCreation = null
+                            closeSocketInternal(intentional = true)
+                            sessionTokenInMemory = null
+                            _state.update {
+                                it.copy(
+                                    connectionStatus = ConnectionStatus.ERROR,
+                                    roomCode = null,
+                                    errorMessage = "La sala se creó para $serverCapacity jugadores, pero se solicitaron $expected."
+                                )
+                            }
+                            return
+                        }
+                    }
+                }
+                expectedCapacityForCreation = null
 
                 if (token.isNotBlank()) {
                     sessionTokenInMemory = token
@@ -768,6 +796,7 @@ class MultiplayerSessionManager(
         runCatching { activeConnection?.send(ProtocolCodec.encodeLeaveRoom()) }
         closeSocketInternal(intentional = true)
         sessionTokenInMemory = null
+        expectedCapacityForCreation = null
         val currentServer = _state.value.serverBaseUrl
         val currentHealth = _state.value.serverHealth
         val status = if (currentServer.isBlank()) ConnectionStatus.UNCONFIGURED else ConnectionStatus.DISCONNECTED

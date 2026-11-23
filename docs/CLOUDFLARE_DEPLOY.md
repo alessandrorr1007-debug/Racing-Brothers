@@ -33,7 +33,7 @@ npm install
 ```powershell
 npm test
 ```
-Debe mostrar **6 pruebas aprobadas y 0 fallidas**.
+Debe mostrar **8 pruebas aprobadas y 0 fallidas**. Opcionalmente, valida clientes reales con `npm run test:e2e` (o `RB_BASE_URL=http://127.0.0.1:8787 npm run test:e2e` contra `npm run dev`); cubre salas de 2, 3 y 4 jugadores.
 
 ### Paso 3: Iniciar sesión en tu cuenta de Cloudflare
 ```powershell

@@ -22,7 +22,7 @@ object RoomCodeValidator {
 
     /**
      * Extracts a 6-digit room code from either direct typing or a pasted invite message
-     * (e.g., "¡Únete a mi carrera 1 vs 1 en Racing Brothers! Código de sala: 048219"),
+     * (e.g., "¡Únete a mi carrera en Racing Brothers! Código de sala: 048219"),
      * falling back to standard digit normalization.
      */
     fun extractFromInput(raw: String): String {
@@ -99,7 +99,7 @@ enum class RoomPhase {
 
 data class PlayerSlotState(
     val playerId: String,
-    val slot: Int, // 0 = Host (Jugador 1), 1 = Guest (Jugador 2)
+    val slot: Int, // 0 = Host (Jugador 1), 1..3 = Invitados (Jugadores 2..4)
     val isHost: Boolean,
     val connected: Boolean,
     val vehicleId: String,

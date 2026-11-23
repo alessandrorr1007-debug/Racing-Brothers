@@ -59,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.example.racingbrothers.tracks.CircuitTrack
 import com.example.racingbrothers.vehicles.BalancedV1Stats
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -645,7 +646,7 @@ private fun RaceResultsModal(
     onRequestRematch: () -> Unit,
     onExitToMenu: () -> Unit
 ) {
-    val winnerLabel = if (results.winnerSlot == 0) "JUGADOR 1" else "JUGADOR 2"
+    val winnerLabel = "JUGADOR ${results.winnerSlot + 1}"
     val didLocalWin = results.winnerPlayerId == localPlayerId
 
     BoxWithConstraints(
@@ -700,9 +701,9 @@ private fun RaceResultsModal(
                         )
                     }
 
-                    // Both participants' results
+                    // Resultados de todos los participantes (slots 0..3).
                     results.players.forEachIndexed { idx, p ->
-                        val playerLabel = if (p.slot == 0) "JUGADOR 1" else "JUGADOR 2"
+                        val playerLabel = "JUGADOR ${p.slot + 1}"
                         val isMe = p.playerId == localPlayerId
                         val carName = VehicleCatalog.getVehicle(p.vehicleId).displayName
                         val charName = CharacterCatalog.getCharacter(p.characterId).displayName
@@ -729,7 +730,7 @@ private fun RaceResultsModal(
                                         color = IceWhite
                                     )
                                     Text(
-                                        text = "$carName · $charName · ${p.completedLaps}/3 vueltas",
+                                        text = "$carName · $charName · ${p.completedLaps}/${CircuitTrack.TOTAL_LAPS} vueltas",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = SilverMist
                                     )

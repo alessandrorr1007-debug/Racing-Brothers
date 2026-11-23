@@ -695,13 +695,16 @@ private fun RoomEntryLayout(
 }
 
 @Composable
-private fun playerFacingJoinError(message: String): String = when (message) {
-    "La sala no existe o el código es incorrecto.",
-    "Esta sala ya fue cerrada.",
-    "La sala ya no está disponible.",
-    "El código de sala no coincide.",
-    "La sala está llena (máximo 2 jugadores).",
-    "La carrera ya ha comenzado." -> message
+private fun playerFacingJoinError(message: String): String = when {
+    // El servidor incluye la capacidad real (2, 3 o 4) en este mensaje.
+    message.startsWith("La sala está llena") -> message
+    message in setOf(
+        "La sala no existe o el código es incorrecto.",
+        "Esta sala ya fue cerrada.",
+        "La sala ya no está disponible.",
+        "El código de sala no coincide.",
+        "La carrera ya ha comenzado."
+    ) -> message
     else -> stringResource(R.string.connection_failed)
 }
 

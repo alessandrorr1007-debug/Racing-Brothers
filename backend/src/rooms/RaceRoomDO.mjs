@@ -579,16 +579,22 @@ export class RaceRoomDO {
     }
     const allPlayers = Array.from(this.players.values());
     if (allPlayers.length !== this.maxPlayers) {
+      // NEED_TWO_PLAYERS se conserva como alias v1 para salas de 2 jugadores.
       this.sendTo(ws, "error", {
         code: this.maxPlayers === DEFAULT_ROOM_CAPACITY ? "NEED_TWO_PLAYERS" : "NEED_ALL_PLAYERS",
-        message: `Se requieren ${this.maxPlayers} jugadores conectados para iniciar.`
+        message: `Se requieren ${this.maxPlayers} jugadores conectados para iniciar.`,
+        required: this.maxPlayers,
+        current: allPlayers.length
       });
       return;
     }
-    if (!allPlayers.every((p) => p.connected && p.ready)) {
+    const readyCount = allPlayers.filter((p) => p.connected && p.ready).length;
+    if (readyCount !== this.maxPlayers) {
       this.sendTo(ws, "error", {
         code: "PLAYERS_NOT_READY",
-        message: "Ambos jugadores deben marcar LISTO."
+        message: `Los ${this.maxPlayers} jugadores deben marcar LISTO.`,
+        required: this.maxPlayers,
+        readyCount
       });
       return;
     }
@@ -675,7 +681,7 @@ export class RaceRoomDO {
     if (msg.seq <= player.lastSeq) return;
     player.lastSeq = msg.seq;
 
-    // Broadcast authoritative lap/checkpoint along with validated movement state to the opponent
+    // Broadcast authoritative lap/checkpoint with validated movement state to the other players
     this.broadcast(
       "state_snapshot",
       {

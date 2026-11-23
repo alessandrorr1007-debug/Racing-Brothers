@@ -101,6 +101,10 @@ export default {
             201
           );
         }
+        if (initRes.status === 409) {
+          return jsonResponse({ error: "El código de sala ya está en uso." }, 409);
+        }
+        // Solo reintentamos errores transitorios del Durable Object.
       }
       return jsonResponse({ error: "No se pudo reservar un código único de sala." }, 503);
     }

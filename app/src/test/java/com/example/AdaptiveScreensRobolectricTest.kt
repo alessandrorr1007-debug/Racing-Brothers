@@ -242,6 +242,35 @@ class AdaptiveScreensRobolectricTest {
         composeRule.runOnIdle { assertTrue(rematch && exited) }
     }
 
+    @Test
+    fun `results show the real slot label for four players`() {
+        setContent(fontScale = 1f) {
+            RaceOverlay(
+                state = MultiplayerUiState(
+                    phase = RoomPhase.FINISHED,
+                    roomCapacity = 4,
+                    localPlayerId = "p3",
+                    raceResults = RaceResultsState(
+                        winnerPlayerId = "p3",
+                        winnerSlot = 3,
+                        players = listOf(
+                            PlayerRaceResult("p0", 0, "vortex_rs", "nico_turbo", true, 3, 48_900L),
+                            PlayerRaceResult("p1", 1, "apex_gtx", "kira_apex", true, 3, 48_100L),
+                            PlayerRaceResult("p2", 2, "titan_v8", "beto_torque", true, 3, 47_300L),
+                            PlayerRaceResult("p3", 3, "formula_aero", "pilot_04", true, 3, 45_120L)
+                        )
+                    )
+                ),
+                onRequestRematch = {},
+                onExitToMenu = {}
+            )
+        }
+
+        composeRule.onNodeWithTag("race_results_modal").assertIsDisplayed()
+        composeRule.onNodeWithText("4° · JUGADOR 4", substring = true).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("2° · JUGADOR 2", substring = true).performScrollTo().assertIsDisplayed()
+    }
+
     private fun verifyRoomActions(fontScale: Float) {
         var continued = false
         setContent(fontScale) {

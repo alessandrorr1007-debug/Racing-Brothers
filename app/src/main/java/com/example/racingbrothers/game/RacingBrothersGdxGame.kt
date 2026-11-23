@@ -54,8 +54,8 @@ data class RaceHudSnapshot(
 
 /**
  * Core libGDX 3D racing loop for Racing Brothers V1.
- * Drives local physics, smoothly interpolates the remote online opponent, validates checkpoints
- * with the Cloudflare backend, and renders both cars + drivers on Circuito Neon Bay.
+ * Drives local physics, smoothly interpolates the remote online players, validates checkpoints
+ * with the Cloudflare backend, and renders every connected car + driver on Circuito Neon Bay.
  */
 class RacingBrothersGdxGame(
     private val sessionManager: MultiplayerSessionManager,
@@ -421,6 +421,7 @@ class RacingBrothersGdxGame(
                 z = localState.z
             )
             val rank = 1 + rivals.count { (playerId, rival) ->
+                if (session.players.none { it.playerId == playerId && it.connected }) return@count false
                 val telemetry = session.remoteTelemetryByPlayerId[playerId] ?: return@count false
                 val progress = track.computeRaceProgress(
                     telemetry.completedLaps, telemetry.nextCheckpoint, rival.x, rival.z
@@ -442,7 +443,7 @@ class RacingBrothersGdxGame(
                     fps = Gdx.graphics.framesPerSecond,
                     nitroCharge = localState.nitroCharge,
                     nitroActive = localState.nitroActive,
-                    playerCount = session.roomCapacity,
+                    playerCount = session.players.count { it.connected }.takeIf { it > 0 } ?: session.roomCapacity,
                     circuit = track.id,
                     markers = buildList {
                         add(TrackMarker(localState.x, localState.z, local = true))

@@ -1,6 +1,6 @@
 {
   "name": "Racing Brothers",
-  "description": "Videojuego Android 3D de carreras arcade multijugador online 1 vs 1 en salas privadas, construido con Kotlin, Jetpack Compose, libGDX 3D, WebSockets y Cloudflare Workers.",
+  "description": "Videojuego Android 3D de carreras arcade multijugador online de 2 a 4 jugadores en salas privadas, construido con Kotlin, Jetpack Compose, libGDX 3D, WebSockets y Cloudflare Workers.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

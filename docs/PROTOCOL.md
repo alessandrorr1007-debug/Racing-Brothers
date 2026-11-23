@@ -34,10 +34,10 @@
 - `room_state`: estado sincronizado de los jugadores y fase (`LOBBY`, `COUNTDOWN`, `RACING`, `FINISHED`).
 - `countdown`: cuenta regresiva sincronizada (`value`: 3, 2, 1) y `trackId` resuelto. El servidor valida los checkpoints de ese trazado.
 - `race_started`: señal oficial `¡GO!` con `startedAtMs`.
-- `state_snapshot`: posición/movimiento validado del oponente para interpolación suave.
+- `state_snapshot`: posición/movimiento validado de los demás jugadores para interpolación suave.
 - `checkpoint_ack`: confirmación autoritativa de checkpoint y vueltas completadas.
 - `race_finished`: ganador verificado por el servidor, tiempos totales y resultados de todos los participantes.
 - `rematch_state`: conteo de confirmaciones de revancha.
-- `player_disconnected` / `player_reconnected`: notificaciones de estado de red del rival.
+- `player_disconnected` / `player_reconnected`: notificaciones de estado de red de cualquier participante.
 - `room_closed`: cierre de sala con motivo explícito.
-- `error`: código estructurado (`ROOM_FULL`, `ROOM_NOT_FOUND`, `ROOM_CLOSED`, `HOST_ONLY`, `PLAYERS_NOT_READY`, `INVALID_CHECKPOINT_ORDER`, `CHECKPOINT_OUT_OF_RANGE`, `IMPOSSIBLE_LAP_TIME`, `RATE_LIMITED`, `MESSAGE_TOO_LARGE`, `MALFORMED_JSON`).
+- `error`: código estructurado (`ROOM_FULL`, `ROOM_NOT_FOUND`, `ROOM_CLOSED`, `HOST_ONLY`, `NEED_TWO_PLAYERS` (alias v1), `NEED_ALL_PLAYERS`, `PLAYERS_NOT_READY`, `INVALID_CHECKPOINT_ORDER`, `CHECKPOINT_OUT_OF_RANGE`, `IMPOSSIBLE_LAP_TIME`, `RATE_LIMITED`, `MESSAGE_TOO_LARGE`, `MALFORMED_JSON`).
