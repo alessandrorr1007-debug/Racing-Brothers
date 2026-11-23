@@ -119,6 +119,35 @@ object CharacterCatalog {
                 CharacterPart("goggle_r", 0.15f, 1.76f, 0.36f, 0.22f, 0.18f, 0.10f, 0xFFFFB300),
                 CharacterPart("mustache", 0f, 1.54f, 0.36f, 0.34f, 0.10f, 0.08f, 0xFF3E2723)
             )
+        ),
+        // 4. Luka "Vector" — Deep cobalt precision racer with cyan visor and aero crest
+        CharacterSpec(
+            id = "pilot_04",
+            displayName = "Luka",
+            callsign = "VECTOR",
+            styleTag = "Piloto de Precisión",
+            description = "Mono azul profundo, visor cian y cresta aerodinámica de competición.",
+            primaryColorArgb = 0xFF0B1FD1,
+            accentColorArgb = 0xFF35E7FF,
+            parts = listOf(
+                CharacterPart("leg_l", -0.17f, 0.34f, 0f, 0.25f, 0.68f, 0.26f, 0xFF0B1538),
+                CharacterPart("leg_r", 0.17f, 0.34f, 0f, 0.25f, 0.68f, 0.26f, 0xFF0B1538),
+                CharacterPart("boot_l", -0.17f, 0.08f, 0.06f, 0.27f, 0.16f, 0.38f, 0xFF0B1FD1),
+                CharacterPart("boot_r", 0.17f, 0.08f, 0.06f, 0.27f, 0.16f, 0.38f, 0xFF0B1FD1),
+                CharacterPart("torso", 0f, 1.00f, 0f, 0.68f, 0.70f, 0.40f, 0xFF101E52),
+                CharacterPart("chest_stripe", 0f, 1.04f, 0.21f, 0.24f, 0.58f, 0.04f, 0xFF35E7FF),
+                CharacterPart("collar", 0f, 1.39f, 0f, 0.44f, 0.12f, 0.36f, 0xFFE8F6FF),
+                CharacterPart("shoulder_l", -0.42f, 1.28f, 0f, 0.24f, 0.18f, 0.38f, 0xFF35E7FF),
+                CharacterPart("shoulder_r", 0.42f, 1.28f, 0f, 0.24f, 0.18f, 0.38f, 0xFF35E7FF),
+                CharacterPart("arm_l", -0.45f, 0.98f, 0.04f, 0.21f, 0.58f, 0.22f, 0xFF142A63),
+                CharacterPart("arm_r", 0.45f, 0.98f, 0.04f, 0.21f, 0.58f, 0.22f, 0xFF142A63),
+                CharacterPart("glove_l", -0.45f, 0.64f, 0.08f, 0.23f, 0.16f, 0.24f, 0xFFE8F6FF),
+                CharacterPart("glove_r", 0.45f, 0.64f, 0.08f, 0.23f, 0.16f, 0.24f, 0xFFE8F6FF),
+                CharacterPart("helmet", 0f, 1.72f, 0f, 0.65f, 0.60f, 0.66f, 0xFF0B1FD1),
+                CharacterPart("visor", 0f, 1.74f, 0.32f, 0.56f, 0.24f, 0.10f, 0xFF35E7FF),
+                CharacterPart("aero_crest", 0f, 2.08f, -0.04f, 0.12f, 0.24f, 0.58f, 0xFFE8F6FF),
+                CharacterPart("chin_guard", 0f, 1.50f, 0.28f, 0.52f, 0.14f, 0.16f, 0xFF0A122E)
+            )
         )
     )
 

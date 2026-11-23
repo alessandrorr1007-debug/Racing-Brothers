@@ -221,6 +221,7 @@ fun LobbyScreen(
                             garageLighting = true,
                             showTurntable = false,
                             drawLocalBackdrop = false,
+                            useGlb = false,
                             modifier = Modifier
                                 .weight(0.22f)
                                 .fillMaxHeight()

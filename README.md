@@ -26,8 +26,8 @@ RacingBrothers/
 │       │   ├── MainActivity.kt               # Navegación Compose
 │       │   ├── ui/theme/                     # Paleta oscura, tipografía Orbitron/Exo 2/JetBrains Mono
 │       │   └── racingbrothers/
-│       │       ├── vehicles/                 # 4 autos 3D originales + 6 colores (rendimiento equilibrado V1)
-│       │       ├── characters/               # 3 pilotos cartoon 3D originales
+│       │       ├── vehicles/                 # 4 autos 3D (GLB LOD0/1/2) + 6 colores (rendimiento equilibrado V1)
+│       │       ├── characters/               # 4 pilotos cartoon 3D originales (GLB con Exhibition/Driving)
 │       │       ├── tracks/                   # Circuito Neon Bay 3D (curvas, chicanes, 6 checkpoints, 3 vueltas)
 │       │       ├── controls/                 # Física arcade determinista y controles táctiles
 │       │       ├── camera/                   # Sistema extensible de cámaras (Cercana / Lejana)

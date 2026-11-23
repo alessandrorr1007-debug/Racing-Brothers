@@ -36,8 +36,9 @@ class RacingPhysicsAndCameraTest {
         )
         assertTrue(VehicleCatalog.paintColors.size >= 6)
 
-        assertEquals(3, CharacterCatalog.characters.size)
-        assertEquals(3, CharacterCatalog.characters.map { it.id }.toSet().size)
+        assertEquals(4, CharacterCatalog.characters.size)
+        assertEquals(4, CharacterCatalog.characters.map { it.id }.toSet().size)
+        assertTrue(CharacterCatalog.characters.any { it.id == "pilot_04" })
         CharacterCatalog.characters.forEach { ch ->
             assertTrue("Driver ${ch.id} should have real 3D geometry parts", ch.parts.size >= 10)
         }

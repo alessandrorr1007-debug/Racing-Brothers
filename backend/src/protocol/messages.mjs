@@ -29,7 +29,8 @@ export const ALLOWED_COLORS = new Set([
 export const ALLOWED_CHARACTERS = new Set([
   "nico_turbo",
   "kira_apex",
-  "beto_torque"
+  "beto_torque",
+  "pilot_04"
 ]);
 
 /**

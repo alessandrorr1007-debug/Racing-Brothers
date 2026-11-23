@@ -178,6 +178,7 @@ dependencies {
 
   // libGDX 3D engine for Android
   implementation(libs.libgdx.core)
+  implementation("com.github.mgsx-dev.gdx-gltf:gltf:2.2.1")
   implementation(libs.libgdx.backend.android)
   gdxNativesArm64("com.badlogicgames.gdx:gdx-platform:${libs.versions.libgdx.get()}:natives-arm64-v8a")
   gdxNativesArmv7("com.badlogicgames.gdx:gdx-platform:${libs.versions.libgdx.get()}:natives-armeabi-v7a")

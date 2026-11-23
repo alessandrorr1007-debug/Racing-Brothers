@@ -32,6 +32,7 @@ import com.example.racingbrothers.tracks.TrackMarker
 import com.example.racingbrothers.vehicles.BalancedV1Stats
 import com.example.racingbrothers.vehicles.VehicleCatalog
 import com.example.racingbrothers.vehicles.VehicleAppearance
+import net.mgsx.gltf.scene3d.scene.SceneManager
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
@@ -78,6 +79,12 @@ class RacingBrothersGdxGame(
     private var localCarRig: GdxVehicleRig? = null
     private val rivals = mutableMapOf<String, RivalCar>()
 
+    // Blender GLB pipeline: GPU assets shared by all instances, procedural rigs remain fallback.
+    private var glbAssets: GlbAssetCache? = null
+    private var sceneManager: SceneManager? = null
+    private var localGlbRig: GlbVehicleRig? = null
+    private val glbRivals = mutableMapOf<String, GlbVehicleRig>()
+
     private var track = CircuitTrack.forId(CircuitId.SPEEDWAY)
     private var physics = ArcadeCarPhysics(track)
     private val cameraRig = CameraRig(initialCameraMode)
@@ -85,7 +92,7 @@ class RacingBrothersGdxGame(
     private var localState: CarPhysicsState = physics.createStartingState(0)
 
     private data class RivalCar(
-        val rig: GdxVehicleRig,
+        val rig: GdxVehicleRig?,
         var x: Float,
         var z: Float,
         var heading: Float,
@@ -146,13 +153,49 @@ class RacingBrothersGdxGame(
             }
         }
 
+        glbAssets = GlbAssetCache()
+        sceneManager = SceneManager(32).apply {
+            setCamera(camera)
+            environment = this@RacingBrothersGdxGame.environment
+        }
+
         resetGridPositions()
+    }
+
+    private fun buildGlbRig(vehicleId: String, characterId: String, lod: Int): GlbVehicleRig? {
+        val assets = glbAssets ?: return null
+        val carAsset = assets.car(vehicleId, lod) ?: return null
+        return try {
+            GlbVehicleRig(
+                carAsset = carAsset,
+                lod = lod,
+                pilotAsset = assets.pilot(characterId),
+                cockpitY = VehicleCatalog.getVehicle(vehicleId).cockpitY,
+                seatZ = BlenderAssets.cars[vehicleId]?.seatZ ?: -0.18f
+            )
+        } catch (t: Throwable) {
+            Gdx.app?.error("RacingBrothersGdxGame", "GLB rig failed for $vehicleId: ${t.message}")
+            null
+        }
+    }
+
+    private fun registerGlbRig(rig: GlbVehicleRig) {
+        rig.scenes.forEach { sceneManager?.addScene(it) }
+    }
+
+    private fun unregisterGlbRig(rig: GlbVehicleRig) {
+        rig.scenes.forEach { sceneManager?.removeScene(it) }
     }
 
     private fun resetGridPositions() {
         localCarRig?.dispose()
-        rivals.values.forEach { it.rig.dispose() }
+        localCarRig = null
+        rivals.values.forEach { it.rig?.dispose() }
         rivals.clear()
+        localGlbRig?.let { unregisterGlbRig(it) }
+        glbRivals.values.forEach { unregisterGlbRig(it) }
+        localGlbRig = null
+        glbRivals.clear()
         val session = sessionManager.state.value
         val resolvedTrack = CircuitTrack.forId(session.circuit)
         if (trackWorld == null || track !== resolvedTrack) {
@@ -162,22 +205,38 @@ class RacingBrothersGdxGame(
             trackWorld = GdxMeshFactory.buildTrackWorld(graphicsQuality, track)
         }
         val local = session.localPlayer
-        localCarRig = GdxMeshFactory.buildVehicleRig(
-            VehicleCatalog.getVehicle(local?.vehicleId ?: "vortex_rs"),
-            VehicleCatalog.getPaintColor(local?.colorId ?: "electric_cobalt"),
-            CharacterCatalog.getCharacter(local?.characterId ?: "nico_turbo"),
-            local?.appearance ?: VehicleAppearance()
-        )
+        val localVehicleId = local?.vehicleId ?: "vortex_rs"
+        val localCharacterId = BlenderAssets.wirePilot(local?.characterId ?: "nico_turbo")
+        val localLod = if (graphicsQuality == GraphicsQuality.HIGH) 0 else 1
+        localGlbRig = buildGlbRig(localVehicleId, localCharacterId, localLod)
+        if (localGlbRig != null) {
+            registerGlbRig(localGlbRig!!)
+        } else {
+            localCarRig = GdxMeshFactory.buildVehicleRig(
+                VehicleCatalog.getVehicle(localVehicleId),
+                VehicleCatalog.getPaintColor(local?.colorId ?: "electric_cobalt"),
+                CharacterCatalog.getCharacter(local?.characterId ?: "nico_turbo"),
+                local?.appearance ?: VehicleAppearance()
+            )
+        }
         for (player in session.players) {
             if (player.playerId == session.localPlayerId) continue
             val (x, z, heading) = track.getStartSlot(player.slot)
-            val rig = GdxMeshFactory.buildVehicleRig(
-                VehicleCatalog.getVehicle(player.vehicleId),
-                VehicleCatalog.getPaintColor(player.colorId),
-                CharacterCatalog.getCharacter(player.characterId),
-                player.appearance
-            )
-            rivals[player.playerId] = RivalCar(rig, x, z, heading)
+            val rivalLod = if (graphicsQuality == GraphicsQuality.LOW) 2 else 1
+            val glbRig = buildGlbRig(player.vehicleId, BlenderAssets.wirePilot(player.characterId), rivalLod)
+            val proceduralRig = if (glbRig == null) {
+                GdxMeshFactory.buildVehicleRig(
+                    VehicleCatalog.getVehicle(player.vehicleId),
+                    VehicleCatalog.getPaintColor(player.colorId),
+                    CharacterCatalog.getCharacter(player.characterId),
+                    player.appearance
+                )
+            } else null
+            if (glbRig != null) {
+                registerGlbRig(glbRig)
+                glbRivals[player.playerId] = glbRig
+            }
+            rivals[player.playerId] = RivalCar(proceduralRig, x, z, heading)
         }
         localState = physics.createStartingState(session.localSlot)
         cameraRig.snapToTarget(localState.x, localState.z, localState.headingRad)
@@ -296,6 +355,16 @@ class RacingBrothersGdxGame(
             steerAngleDeg = localState.steerAngleDeg,
             wheelSpinDeg = localState.wheelSpinDeg
         )
+        // Advance glTF animation clips first, then overwrite the wheel node pose manually.
+        sceneManager?.update(dt)
+        localGlbRig?.applyTransform(
+            localState.x, localState.z, localState.headingRad,
+            localState.steerAngleDeg, localState.wheelSpinDeg
+        )
+        for ((id, glbRig) in glbRivals) {
+            val rival = rivals[id] ?: continue
+            glbRig.applyTransform(rival.x, rival.z, rival.heading, rival.steer, rival.wheelSpin)
+        }
         // 6. Render 3D scene (Deep midnight night-circuit sky)
         Gdx.gl.glViewport(0, 0, Gdx.graphics.width, Gdx.graphics.height)
         when (track.id) {
@@ -312,7 +381,7 @@ class RacingBrothersGdxGame(
                 modelBatch.render(arch, environment)
             }
         }
-        localCarRig?.let { rig ->
+        if (localGlbRig == null) localCarRig?.let { rig ->
             modelBatch.render(rig.bodyInstance, environment)
             modelBatch.render(rig.driverInstance, environment)
             for (w in rig.wheels) {
@@ -325,10 +394,11 @@ class RacingBrothersGdxGame(
         }
         for (player in session.players) {
             val rival = rivals[player.playerId] ?: continue
-            val rig = rival.rig
-            modelBatch.render(rig.bodyInstance, environment)
-            modelBatch.render(rig.driverInstance, environment)
-            for (wheel in rig.wheels) modelBatch.render(wheel.instance, environment)
+            if (glbRivals[player.playerId] == null) rival.rig?.let { rig ->
+                modelBatch.render(rig.bodyInstance, environment)
+                modelBatch.render(rig.driverInstance, environment)
+                for (wheel in rig.wheels) modelBatch.render(wheel.instance, environment)
+            }
             val telemetry = session.remoteTelemetryByPlayerId[player.playerId] ?: continue
             if (session.phase == RoomPhase.RACING && player.connected &&
                 System.currentTimeMillis() - telemetry.receivedAtMs < 300L
@@ -337,6 +407,8 @@ class RacingBrothersGdxGame(
             }
         }
         modelBatch.end()
+        // glTF cars/pilots use the PBR SceneManager batch; depth is shared with the track above.
+        sceneManager?.render()
 
         // 7. Publish HUD snapshot at ~15 Hz so Compose HUD stays crisp with minimal recomposition
         hudAccumulatorSec += dt
@@ -431,7 +503,7 @@ class RacingBrothersGdxGame(
                 rival.steer += (telemetry.steerAngleDeg - rival.steer) * alpha
                 rival.wheelSpin = (rival.wheelSpin + rival.speed * dt / 0.36f * (180f / Math.PI.toFloat())) % 360f
             }
-            rival.rig.updateTransform(rival.x, rival.z, rival.heading, rival.steer, rival.wheelSpin)
+            rival.rig?.updateTransform(rival.x, rival.z, rival.heading, rival.steer, rival.wheelSpin)
         }
     }
 
@@ -441,6 +513,8 @@ class RacingBrothersGdxGame(
         smokeModel.dispose()
         trackWorld?.dispose()
         localCarRig?.dispose()
-        rivals.values.forEach { it.rig.dispose() }
+        rivals.values.forEach { it.rig?.dispose() }
+        sceneManager?.dispose()
+        glbAssets?.dispose()
     }
 }

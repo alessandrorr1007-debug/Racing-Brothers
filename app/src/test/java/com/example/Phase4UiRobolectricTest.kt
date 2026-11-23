@@ -201,7 +201,7 @@ class Phase4UiRobolectricTest {
                             PlayerSlotState("p1", 0, true, true, "vortex_rs", "electric_cobalt", "nico_turbo", true),
                             PlayerSlotState("p2", 1, false, true, "apex_gtx", "crimson_ignite", "kira_apex", true),
                             PlayerSlotState("p3", 2, false, true, "titan_v8", "solar_amber", "beto_torque", true),
-                            PlayerSlotState("p4", 3, false, true, "formula_aero", "emerald_pulse", "nico_turbo", true)
+                            PlayerSlotState("p4", 3, false, true, "formula_aero", "emerald_pulse", "pilot_04", true)
                         )
                     ),
                     onEditSetup = {},

@@ -22,7 +22,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import com.example.racingbrothers.characters.CharacterSpec
+import com.example.racingbrothers.game.GlbTriangle
+import com.example.racingbrothers.game.GlbVertex
+import com.example.racingbrothers.ui.components.GlbPreviewLoader.placed
 import com.example.racingbrothers.vehicles.LocalCorner3D
 import com.example.racingbrothers.vehicles.PartColorRole
 import com.example.racingbrothers.vehicles.VehicleAppearance
@@ -90,6 +94,12 @@ private data class ProjectedBloom(
     val color: Color
 )
 
+private data class PreviewScene(
+    val boxes: List<RenderBox3D>,
+    val wheels: List<RenderWheel3D>,
+    val triangles: List<GlbTriangle>
+)
+
 private fun simpleBoxCorners(w: Float, h: Float, l: Float): Array<LocalCorner3D> {
     val hw = w * 0.5f
     val hh = h * 0.5f
@@ -120,9 +130,20 @@ fun Vehicle3DPreview(
     garageLighting: Boolean = true,
     showTurntable: Boolean = true,
     drawLocalBackdrop: Boolean = false,
-    appearance: VehicleAppearance = VehicleAppearance()
+    appearance: VehicleAppearance = VehicleAppearance(),
+    useGlb: Boolean = true
 ) {
-    val scene = remember(vehicle.id, paintColor.id, driver?.id, appearance) {
+    val context = LocalContext.current
+    val glbCar = remember(vehicle.id) { if (useGlb) GlbPreviewLoader.car(context, vehicle.id, 2) else null }
+    val scene = remember(vehicle.id, paintColor.id, driver?.id, appearance, glbCar) {
+        if (glbCar != null) {
+            val pilotTriangles = if (driver != null) {
+                GlbPreviewLoader.pilot(context, driver.id)?.let { pilot ->
+                    pilot.placed(0.46f, 0f, vehicle.cockpitY - 0.40f, vehicle.cockpitZ - 0.10f)
+                }.orEmpty()
+            } else emptyList<GlbTriangle>()
+            PreviewScene(emptyList(), emptyList(), glbCar.triangles + pilotTriangles)
+        } else {
         val boxes = mutableListOf<RenderBox3D>()
         val wheels = mutableListOf<RenderWheel3D>()
         val neonColor = Color(vehicle.neonAccentArgb)
@@ -194,12 +215,14 @@ fun Vehicle3DPreview(
                 )
             }
         }
-        boxes to wheels
+        PreviewScene(boxes, wheels, emptyList())
+        }
     }
 
     Interactive3DViewport(
-        boxes = scene.first,
-        wheels = scene.second,
+        boxes = scene.boxes,
+        wheels = scene.wheels,
+        triangles = scene.triangles,
         centerYOffset = 0.56f,
         cameraDistance = 6.85f / zoomScale,
         modifier = modifier,
@@ -223,26 +246,33 @@ fun Character3DPreview(
     initialPitchDeg: Float = 12f,
     showTurntable: Boolean = true
 ) {
-    val boxes = remember(character.id) {
-        character.parts.map { part ->
-            RenderBox3D(
-                cx = part.centerX,
-                cy = part.centerY,
-                cz = part.centerZ,
-                corners = simpleBoxCorners(part.width, part.height, part.length),
-                color = Color(part.argb),
-                material = when {
-                    part.id.contains("visor") || part.id.contains("goggle") -> PreviewMaterialKind.EMISSIVE
-                    part.id.contains("helmet") -> PreviewMaterialKind.METALLIC_PAINT
-                    else -> PreviewMaterialKind.MATTE_TRIM
-                }
-            )
+    val context = LocalContext.current
+    val glbPilot = remember(character.id) { GlbPreviewLoader.pilot(context, character.id) }
+    val scene = remember(character.id, glbPilot) {
+        if (glbPilot != null) {
+            PreviewScene(emptyList(), emptyList(), glbPilot.triangles)
+        } else {
+            PreviewScene(character.parts.map { part ->
+                RenderBox3D(
+                    cx = part.centerX,
+                    cy = part.centerY,
+                    cz = part.centerZ,
+                    corners = simpleBoxCorners(part.width, part.height, part.length),
+                    color = Color(part.argb),
+                    material = when {
+                        part.id.contains("visor") || part.id.contains("goggle") -> PreviewMaterialKind.EMISSIVE
+                        part.id.contains("helmet") -> PreviewMaterialKind.METALLIC_PAINT
+                        else -> PreviewMaterialKind.MATTE_TRIM
+                    }
+                )
+            }, emptyList(), emptyList())
         }
     }
 
     Interactive3DViewport(
-        boxes = boxes,
-        wheels = emptyList(),
+        boxes = scene.boxes,
+        wheels = scene.wheels,
+        triangles = scene.triangles,
         centerYOffset = 1.06f,
         cameraDistance = 4.5f,
         modifier = modifier,
@@ -260,6 +290,7 @@ fun Character3DPreview(
 private fun Interactive3DViewport(
     boxes: List<RenderBox3D>,
     wheels: List<RenderWheel3D>,
+    triangles: List<GlbTriangle>,
     centerYOffset: Float,
     cameraDistance: Float,
     modifier: Modifier,
@@ -464,6 +495,54 @@ private fun Interactive3DViewport(
                     )
                 )
             }
+        }
+
+        // 1b. Real Blender glTF triangles (LOD2) when the GLB asset is available.
+        for (triangle in triangles) {
+            val v0 = toView(triangle.a.x, triangle.a.y, triangle.a.z)
+            val v1 = toView(triangle.b.x, triangle.b.y, triangle.b.z)
+            val v2 = toView(triangle.c.x, triangle.c.y, triangle.c.z)
+            if (v0.z <= 0.35f || v1.z <= 0.35f || v2.z <= 0.35f) continue
+            val e1 = Vec3(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z)
+            val e2 = Vec3(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z)
+            val geometricNormal = normalize(cross(e1, e2))
+            fun viewNormal(v: GlbVertex): Vec3 = normalize(
+                Vec3(
+                    v.nx * cosY + v.nz * sinY,
+                    (v.ny * cosP - (v.nx * -sinY + v.nz * cosY) * sinP),
+                    (v.ny * sinP + (v.nx * -sinY + v.nz * cosY) * cosP)
+                )
+            )
+            val normal = normalize(
+                Vec3(
+                    (viewNormal(triangle.a).x + viewNormal(triangle.b).x + viewNormal(triangle.c).x) / 3f,
+                    (viewNormal(triangle.a).y + viewNormal(triangle.b).y + viewNormal(triangle.c).y) / 3f,
+                    (viewNormal(triangle.a).z + viewNormal(triangle.b).z + viewNormal(triangle.c).z) / 3f
+                )
+            )
+            val toCam = normalize(Vec3(-v0.x, -v0.y, -v0.z))
+            val facing = dot(geometricNormal, toCam)
+            if (facing <= 0f) continue
+            val fill = shadeMaterial(
+                baseColor = Color(triangle.argb),
+                material = glbMaterialKind(triangle.materialName),
+                normal = normal,
+                toCam = toCam,
+                ndv = dot(normal, toCam).coerceIn(0.05f, 1f),
+                keyBlueLightDir = keyBlueLightDir,
+                rimRedLightDir = rimRedLightDir,
+                fillTopDir = fillTopDir,
+                garageLighting = garageLighting
+            )
+            polys.add(
+                ProjectedPoly(
+                    points = listOf(project(v0), project(v1), project(v2)),
+                    depth = (v0.z + v1.z + v2.z) / 3f,
+                    fillColor = fill,
+                    strokeColor = fill.copy(alpha = 0.18f),
+                    strokeWidth = 0.35f
+                )
+            )
         }
 
         // 2. Project detailed 16-sided cylindrical 3D racing wheels with showroom steer,
@@ -793,6 +872,19 @@ private fun Interactive3DViewport(
                 )
             }
         }
+    }
+}
+
+private fun glbMaterialKind(name: String): PreviewMaterialKind {
+    val value = name.lowercase()
+    return when {
+        "glass" in value || "visor" in value || "window" in value || "windshield" in value -> PreviewMaterialKind.GLASS
+        "light" in value || "led" in value || "glow" in value || "emissive" in value -> PreviewMaterialKind.EMISSIVE
+        "paint" in value || "racing color" in value || "body" in value -> PreviewMaterialKind.METALLIC_PAINT
+        "carbon" in value || "composite" in value || "graphite" in value || "armor" in value -> PreviewMaterialKind.CARBON_FIBER
+        "chrome" in value || "metal" in value || "alloy" in value || "aluminium" in value -> PreviewMaterialKind.CHROME_METAL
+        "brake" in value -> PreviewMaterialKind.BRAKE_RED
+        else -> PreviewMaterialKind.MATTE_TRIM
     }
 }
 

@@ -687,6 +687,7 @@ fun DriverPortraitAvatar(
                 color = when (character.id) {
                     "nico_turbo" -> IceWhite
                     "kira_apex" -> primary
+                    "pilot_04" -> primary
                     else -> Color(0xFF2A3B52)
                 },
                 radius = headR,
@@ -698,6 +699,7 @@ fun DriverPortraitAvatar(
                 color = when (character.id) {
                     "nico_turbo" -> NeonCyan
                     "kira_apex" -> Color(0xFFFFD54F)
+                    "pilot_04" -> Color(0xFF35E7FF)
                     else -> Color(0xFFFFB300)
                 },
                 topLeft = Offset(cx - headR * 0.78f, headCy - headR * 0.24f),
@@ -732,6 +734,13 @@ fun DriverPortraitAvatar(
                         }
                         drawPath(ear, Color(0xFF182032))
                     }
+                }
+                "pilot_04" -> {
+                    drawRect(
+                        color = Color(0xFF35E7FF),
+                        topLeft = Offset(cx - headR * 0.12f, headCy - headR * 1.18f),
+                        size = Size(headR * 0.24f, headR * 0.62f)
+                    )
                 }
                 else -> {
                     drawRect(

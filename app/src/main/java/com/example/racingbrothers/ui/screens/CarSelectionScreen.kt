@@ -1193,6 +1193,7 @@ private fun VehicleMiniCardsRow(
                         garageLighting = true,
                         showTurntable = false,
                         drawLocalBackdrop = false,
+                        useGlb = false,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
