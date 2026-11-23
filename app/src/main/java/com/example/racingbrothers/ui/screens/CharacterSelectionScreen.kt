@@ -19,10 +19,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +38,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,10 +48,15 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.racingbrothers.characters.CharacterCatalog
 import com.example.racingbrothers.ui.components.Character3DPreview
+import com.example.racingbrothers.ui.components.DriverPortraitAvatar
+import com.example.racingbrothers.ui.components.NeonButtonTone
+import com.example.racingbrothers.ui.components.NeonSlantedButton
 import com.example.racingbrothers.vehicles.VehicleCatalog
 import com.example.ui.theme.ElectricBlue
+import com.example.ui.theme.GarageGlassStrong
 import com.example.ui.theme.IceWhite
 import com.example.ui.theme.JetBrainsMonoFontFamily
+import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.OrbitronFontFamily
 import com.example.ui.theme.SilverMist
 import com.example.ui.theme.TrackBorderBlue
@@ -76,12 +83,12 @@ fun CharacterSelectionScreen(
         roomCode = roomCode,
         backTag = "btn_char_back",
         onBack = onBack,
-        previewWeight = 0.52f,
-        previewBorderColor = Color(currentCharacter.primaryColorArgb).copy(alpha = 0.7f),
+        previewWeight = 0.50f,
+        previewBorderColor = Color(currentCharacter.primaryColorArgb).copy(alpha = 0.85f),
         preview = {
             Character3DPreview(
                 character = currentCharacter,
-                autoRotate = false,
+                autoRotate = true,
                 interactiveDrag = true,
                 modifier = Modifier
                     .fillMaxSize()
@@ -89,9 +96,9 @@ fun CharacterSelectionScreen(
             )
 
             Surface(
-                color = VoidBlack.copy(alpha = 0.72f),
+                color = GarageGlassStrong,
                 shape = CircleShape,
-                border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.7f)),
+                border = BorderStroke(1.2.dp, ElectricBlue.copy(alpha = 0.78f)),
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = 10.dp)
@@ -112,9 +119,9 @@ fun CharacterSelectionScreen(
             }
 
             Surface(
-                color = VoidBlack.copy(alpha = 0.72f),
+                color = GarageGlassStrong,
                 shape = CircleShape,
-                border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.7f)),
+                border = BorderStroke(1.2.dp, ElectricBlue.copy(alpha = 0.78f)),
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = 10.dp)
@@ -144,7 +151,7 @@ fun CharacterSelectionScreen(
                 Icon(
                     imageVector = Icons.Filled.TouchApp,
                     contentDescription = null,
-                    tint = SilverMist,
+                    tint = NeonCyan,
                     modifier = Modifier.size(14.dp)
                 )
                 Text(
@@ -173,11 +180,14 @@ fun CharacterSelectionScreen(
                         text = currentCharacter.styleTag.uppercase(),
                         fontFamily = JetBrainsMonoFontFamily,
                         fontSize = 11.sp,
-                        color = ElectricBlue
+                        color = NeonCyan
                     )
                 }
                 Text(
                     text = "${currentCharacter.displayName.uppercase()} \"${currentCharacter.callsign}\"",
+                    fontFamily = OrbitronFontFamily,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.headlineLarge,
                     color = IceWhite,
                     modifier = Modifier.testTag("character_name")
@@ -190,11 +200,10 @@ fun CharacterSelectionScreen(
 
                 Spacer(Modifier.height(4.dp))
 
-                // Paired car indicator
                 Surface(
-                    color = VoidBlack.copy(alpha = 0.6f),
+                    color = VoidBlack.copy(alpha = 0.62f),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, TrackBorderBlue)
+                    border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.55f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -204,7 +213,7 @@ fun CharacterSelectionScreen(
                         Icon(
                             imageVector = Icons.Filled.DirectionsCar,
                             contentDescription = null,
-                            tint = ElectricBlue,
+                            tint = NeonCyan,
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
@@ -224,26 +233,36 @@ fun CharacterSelectionScreen(
                 characters.forEachIndexed { idx, ch ->
                     val selected = idx == selectedIndex
                     Surface(
-                        color = if (selected) ElectricBlue.copy(alpha = 0.22f) else VoidBlack.copy(alpha = 0.55f),
-                        shape = RoundedCornerShape(10.dp),
+                        color = if (selected) ElectricBlue.copy(alpha = 0.24f) else VoidBlack.copy(alpha = 0.58f),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(
-                            width = if (selected) 1.5.dp else 1.dp,
-                            color = if (selected) ElectricBlue else TrackBorderBlue
+                            width = if (selected) 2.dp else 1.dp,
+                            color = if (selected) NeonCyan else TrackBorderBlue
                         ),
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 48.dp)
-                            .clickable { selectedIndex = idx }
+                            .heightIn(min = 76.dp)
+                            .clickable(role = Role.RadioButton) { selectedIndex = idx }
                             .testTag("char_card_${ch.id}")
                     ) {
-                        Box(
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center
+                        Column(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
+                            DriverPortraitAvatar(
+                                character = ch,
+                                selected = selected,
+                                showCheckmark = selected,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp)
+                            )
                             Text(
                                 text = ch.displayName.uppercase(),
                                 fontFamily = OrbitronFontFamily,
-                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 11.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 color = if (selected) IceWhite else SilverMist,
@@ -255,23 +274,15 @@ fun CharacterSelectionScreen(
             }
         },
         confirm = {
-            Button(
+            NeonSlantedButton(
+                text = stringResource(R.string.btn_confirm_character),
+                icon = Icons.Filled.Check,
+                tone = NeonButtonTone.PRIMARY_CYAN,
                 onClick = { onConfirmCharacter(currentCharacter.id) },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = VoidBlack
-                ),
-                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 52.dp)
                     .testTag("btn_confirm_character")
-            ) {
-                Text(
-                    text = stringResource(R.string.btn_confirm_character),
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
+            )
         }
     )
 }

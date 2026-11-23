@@ -136,11 +136,13 @@ class RacingBrothersGdxGame(
         }
 
         environment = Environment().apply {
-            set(ColorAttribute(ColorAttribute.AmbientLight, 0.46f, 0.54f, 0.68f, 1f))
-            add(DirectionalLight().set(0.88f, 0.93f, 1.0f, -0.55f, -0.85f, -0.35f))
+            set(ColorAttribute(ColorAttribute.AmbientLight, 0.44f, 0.52f, 0.66f, 1f))
+            // Crisp cool-white stadium overhead key light for metallic clearcoat highlights
+            add(DirectionalLight().set(0.95f, 0.97f, 1.0f, -0.52f, -0.82f, -0.32f))
             if (graphicsQuality == GraphicsQuality.HIGH) {
-                // Electric-blue stadium rim fill light
-                add(DirectionalLight().set(0.18f, 0.58f, 0.95f, 0.6f, -0.35f, 0.65f))
+                // Electric-blue stadium rim fill + subtle crimson back-rim for neon arcade depth
+                add(DirectionalLight().set(0.22f, 0.64f, 1.0f, 0.62f, -0.32f, 0.62f))
+                add(DirectionalLight().set(0.42f, 0.12f, 0.22f, -0.45f, -0.22f, 0.78f))
             }
         }
 

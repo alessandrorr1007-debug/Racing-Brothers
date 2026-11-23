@@ -104,11 +104,15 @@ import com.example.racingbrothers.networking.ConnectionStatus
 import com.example.racingbrothers.networking.MultiplayerUiState
 import com.example.racingbrothers.networking.RoomCodeValidator
 import com.example.racingbrothers.networking.ServerHealthStatus
+import com.example.racingbrothers.ui.components.NeonButtonTone
+import com.example.racingbrothers.ui.components.NeonGarageBackdrop
+import com.example.racingbrothers.ui.components.NeonSlantedButton
 import com.example.ui.theme.AsphaltNavy
 import com.example.ui.theme.CautionAmber
 import com.example.ui.theme.CockpitSlate
 import com.example.ui.theme.DangerCrimson
 import com.example.ui.theme.ElectricBlue
+import com.example.ui.theme.GarageGlassStrong
 import com.example.ui.theme.IceWhite
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.NeonCyan
@@ -159,32 +163,23 @@ fun CreateRoomScreen(
         onBack = onLeaveAndBack,
         cardWidthFraction = 0.78f,
         footer = {
-            Button(
-                onClick = onContinueToGarage,
+            NeonSlantedButton(
+                text = stringResource(R.string.btn_continue_garage),
+                icon = Icons.Filled.DirectionsCar,
+                tone = NeonButtonTone.PRIMARY_CYAN,
                 enabled = multiplayerState.roomCode != null &&
                     multiplayerState.connectionStatus == ConnectionStatus.CONNECTED,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = VoidBlack
-                ),
-                shape = RoundedCornerShape(14.dp),
+                onClick = onContinueToGarage,
                 modifier = Modifier
-                    .heightIn(min = 52.dp)
+                    .widthIn(min = 210.dp, max = 300.dp)
                     .testTag("btn_continue_garage")
-            ) {
-                Icon(Icons.Filled.DirectionsCar, contentDescription = null)
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = stringResource(R.string.btn_continue_garage),
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
+            )
         }
     ) { compact ->
         val roomCode = multiplayerState.roomCode
         when {
             multiplayerState.connectionStatus == ConnectionStatus.CONNECTING -> {
-                CircularProgressIndicator(color = ElectricBlue)
+                CircularProgressIndicator(color = NeonCyan)
                 Text(
                     text = stringResource(R.string.server_status_connecting),
                     style = MaterialTheme.typography.titleMedium,
@@ -215,7 +210,7 @@ fun CreateRoomScreen(
                     modifier = Modifier.testTag("created_room_code")
                 )
                 Text(
-                    text = "Anfitrión reservado en Puesto 1 · Cupo máximo: 2 jugadores",
+                    text = "Anfitrión reservado en Puesto 1 · Cupo máximo: ${multiplayerState.roomCapacity} jugadores",
                     style = MaterialTheme.typography.bodyMedium,
                     color = SilverMist,
                     textAlign = TextAlign.Center
@@ -238,7 +233,7 @@ fun CreateRoomScreen(
                         Icon(
                             imageVector = if (copiedFeedback) Icons.Filled.Check else Icons.Filled.ContentCopy,
                             contentDescription = null,
-                            tint = ElectricBlue
+                            tint = NeonCyan
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
@@ -254,7 +249,7 @@ fun CreateRoomScreen(
                             .heightIn(min = 48.dp)
                             .testTag("btn_share_code")
                     ) {
-                        Icon(Icons.Filled.Share, contentDescription = null, tint = ElectricBlue)
+                        Icon(Icons.Filled.Share, contentDescription = null, tint = NeonCyan)
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.btn_share_code), color = IceWhite)
                     }
@@ -275,20 +270,15 @@ fun CreateRoomScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.testTag("create_room_error")
                 )
-                Button(
+                NeonSlantedButton(
+                    text = stringResource(R.string.btn_retry_connection),
+                    icon = Icons.Filled.Refresh,
+                    tone = NeonButtonTone.PRIMARY_CYAN,
                     onClick = onRetryCreate,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ElectricBlue,
-                        contentColor = VoidBlack
-                    ),
                     modifier = Modifier
-                        .heightIn(min = 48.dp)
+                        .widthIn(min = 180.dp, max = 260.dp)
                         .testTag("btn_retry_create")
-                ) {
-                    Icon(Icons.Filled.Refresh, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.btn_retry_connection), fontFamily = OrbitronFontFamily)
-                }
+                )
             }
         }
     }
@@ -584,9 +574,15 @@ private fun RoomEntryLayout(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(VoidBlack, AsphaltNavy)))
-            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .background(VoidBlack)
     ) {
+        NeonGarageBackdrop(
+            modifier = Modifier.fillMaxSize(),
+            flagSignCenterXFraction = 0.78f,
+            flagSignCenterYFraction = 0.25f,
+            showFlagSign = maxWidth >= 680.dp
+        )
+
         val availableWidth = maxWidth
         val availableHeight = maxHeight
         val fontScale = LocalDensity.current.fontScale
@@ -601,6 +597,7 @@ private fun RoomEntryLayout(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(screenScroll)
                 .heightIn(min = availableHeight)
                 .padding(horizontal = if (narrow) 12.dp else 24.dp, vertical = if (compact) 6.dp else 14.dp),
@@ -618,7 +615,7 @@ private fun RoomEntryLayout(
                 ) {
                     OutlinedButton(
                         onClick = onBack,
-                        border = BorderStroke(1.dp, TrackBorderBlue),
+                        border = BorderStroke(1.2.dp, ElectricBlue.copy(alpha = 0.72f)),
                         contentPadding = PaddingValues(horizontal = if (compact) 10.dp else 16.dp, vertical = 8.dp),
                         modifier = Modifier
                             .widthIn(max = maxBackWidth)
@@ -633,7 +630,7 @@ private fun RoomEntryLayout(
                         Text(
                             text = title,
                             style = if (compact) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge,
-                            color = ElectricBlue,
+                            color = NeonCyan,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.weight(1f)
                         )
@@ -650,7 +647,7 @@ private fun RoomEntryLayout(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.headlineMedium,
-                        color = ElectricBlue,
+                        color = NeonCyan,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -664,9 +661,9 @@ private fun RoomEntryLayout(
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
-                    color = CockpitSlate.copy(alpha = 0.85f),
+                    color = GarageGlassStrong,
                     shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.5.dp, ElectricBlue.copy(alpha = 0.65f)),
+                    border = BorderStroke(1.5.dp, ElectricBlue.copy(alpha = 0.78f)),
                     modifier = Modifier
                         .widthIn(max = 880.dp)
                         .fillMaxWidth(if (narrow) 1f else cardWidthFraction)

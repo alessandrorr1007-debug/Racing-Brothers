@@ -33,24 +33,26 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.ui.theme.AsphaltNavy
-import com.example.ui.theme.CockpitSlate
+import com.example.racingbrothers.ui.components.NeonGarageBackdrop
 import com.example.ui.theme.ElectricBlue
+import com.example.ui.theme.GarageGlass
+import com.example.ui.theme.GarageGlassStrong
 import com.example.ui.theme.IceWhite
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.NeonCyan
+import com.example.ui.theme.OrbitronFontFamily
 import com.example.ui.theme.SilverMist
-import com.example.ui.theme.TrackBorderBlue
 import com.example.ui.theme.VoidBlack
 
 @Composable
@@ -70,20 +72,27 @@ internal fun SelectionScreenLayout(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(VoidBlack, AsphaltNavy)))
-            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .background(VoidBlack)
     ) {
+        NeonGarageBackdrop(
+            modifier = Modifier.fillMaxSize(),
+            flagSignCenterXFraction = 0.28f,
+            flagSignCenterYFraction = 0.28f,
+            showFlagSign = maxWidth >= 640.dp
+        )
+
         val fontScale = LocalDensity.current.fontScale
         val stacked = maxWidth < 480.dp * fontScale.coerceIn(1f, 1.4f) ||
             maxHeight < 236.dp * fontScale.coerceIn(1f, 1.6f)
         val compact = maxWidth < 720.dp || maxHeight < 360.dp
         val paneSpacing = if (compact) 8.dp else 16.dp
         val panelPadding = if (compact) 12.dp else 18.dp
-        val previewHeight = (maxHeight * 0.55f).coerceIn(120.dp, 320.dp)
+        val previewHeight = (maxHeight * 0.52f).coerceIn(120.dp, 300.dp)
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(
                     horizontal = if (compact) 12.dp else 20.dp,
                     vertical = if (compact) 8.dp else 12.dp
@@ -149,8 +158,11 @@ private fun SelectionTopBar(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = title,
+                fontFamily = OrbitronFontFamily,
+                fontStyle = FontStyle.Italic,
+                fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.headlineMedium,
-                color = ElectricBlue,
+                color = IceWhite,
                 textAlign = TextAlign.Center
             )
             if (subtitle != null) {
@@ -168,7 +180,7 @@ private fun SelectionTopBar(
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 OutlinedButton(
                     onClick = onBack,
-                    border = BorderStroke(1.dp, TrackBorderBlue),
+                    border = BorderStroke(1.2.dp, ElectricBlue.copy(alpha = 0.72f)),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     modifier = Modifier.heightIn(min = 48.dp).testTag(backTag)
                 ) {
@@ -178,20 +190,21 @@ private fun SelectionTopBar(
                 }
             }
             if (!stacked) {
-                Box(modifier = Modifier.weight(2.3f), contentAlignment = Alignment.Center, content = {
+                Box(modifier = Modifier.weight(2.3f), contentAlignment = Alignment.Center) {
                     heading()
-                })
+                }
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                 if (roomCode != null) {
                     Surface(
-                        color = CockpitSlate,
+                        color = GarageGlassStrong,
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.6f))
+                        border = BorderStroke(1.2.dp, ElectricBlue.copy(alpha = 0.75f))
                     ) {
                         Text(
                             text = "SALA $roomCode",
                             fontFamily = JetBrainsMonoFontFamily,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             maxLines = 1,
                             softWrap = false,
@@ -214,7 +227,7 @@ private fun SelectionPreview(
     content: @Composable BoxScope.() -> Unit
 ) {
     Surface(
-        color = CockpitSlate.copy(alpha = 0.55f),
+        color = GarageGlass,
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.5.dp, borderColor),
         modifier = modifier
@@ -232,9 +245,9 @@ private fun SelectionDetails(
     confirm: (@Composable () -> Unit)? = null
 ) {
     Surface(
-        color = CockpitSlate.copy(alpha = 0.85f),
+        color = GarageGlassStrong,
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, TrackBorderBlue),
+        border = BorderStroke(1.3.dp, ElectricBlue.copy(alpha = 0.65f)),
         modifier = modifier
     ) {
         Column(

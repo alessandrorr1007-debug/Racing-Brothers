@@ -2,6 +2,8 @@ package com.example.racingbrothers.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -27,56 +31,73 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.TextButton
-import com.example.racingbrothers.tracks.CircuitId
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.racingbrothers.characters.CharacterCatalog
+import com.example.racingbrothers.networking.ConnectionStatus
 import com.example.racingbrothers.networking.MultiplayerUiState
 import com.example.racingbrothers.networking.PlayerSlotState
 import com.example.racingbrothers.networking.RoomPhase
+import com.example.racingbrothers.tracks.CircuitId
+import com.example.racingbrothers.ui.components.CircuitCardArtwork
+import com.example.racingbrothers.ui.components.DriverPortraitAvatar
+import com.example.racingbrothers.ui.components.NeonButtonTone
+import com.example.racingbrothers.ui.components.NeonGarageBackdrop
+import com.example.racingbrothers.ui.components.NeonGlassPanel
+import com.example.racingbrothers.ui.components.NeonScreenTopBar
+import com.example.racingbrothers.ui.components.NeonSlantedButton
 import com.example.racingbrothers.ui.components.Vehicle3DPreview
 import com.example.racingbrothers.vehicles.VehicleCatalog
-import com.example.ui.theme.AsphaltNavy
 import com.example.ui.theme.CautionAmber
-import com.example.ui.theme.CockpitSlate
-import com.example.ui.theme.DangerCrimson
+import com.example.ui.theme.DeepCrimsonSurface
 import com.example.ui.theme.ElectricBlue
+import com.example.ui.theme.GarageGlass
+import com.example.ui.theme.GarageGlassStrong
 import com.example.ui.theme.IceWhite
 import com.example.ui.theme.JetBrainsMonoFontFamily
+import com.example.ui.theme.NeonCrimson
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.OrbitronFontFamily
 import com.example.ui.theme.RacingGreen
@@ -97,9 +118,10 @@ fun LobbyScreen(
     onKickPlayer: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
-    var selectedCircuit by rememberSaveable(multiplayerState.roomCode, preferredCircuit) { mutableStateOf(preferredCircuit) }
+    var selectedCircuit by rememberSaveable(multiplayerState.roomCode, preferredCircuit) {
+        mutableStateOf(preferredCircuit)
+    }
 
-    // Launch the libGDX 3D RaceActivity as soon as the server initiates countdown or race
     LaunchedEffect(multiplayerState.phase) {
         if (multiplayerState.phase == RoomPhase.COUNTDOWN || multiplayerState.phase == RoomPhase.RACING) {
             onLaunchRaceActivity()
@@ -108,248 +130,421 @@ fun LobbyScreen(
 
     val localReady = multiplayerState.localPlayer?.ready == true
     val roomCode = multiplayerState.roomCode ?: "------"
+    val localVehicle = remember(multiplayerState.localPlayer?.vehicleId) {
+        VehicleCatalog.getVehicle(multiplayerState.localPlayer?.vehicleId ?: VehicleCatalog.vehicles.first().id)
+    }
+    val localColor = remember(multiplayerState.localPlayer?.colorId) {
+        VehicleCatalog.getPaintColor(multiplayerState.localPlayer?.colorId ?: VehicleCatalog.paintColors.first().id)
+    }
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(VoidBlack, AsphaltNavy)))
-            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .background(VoidBlack)
     ) {
-        val availableWidth = maxWidth
-        val availableHeight = maxHeight
-        val fontScale = LocalDensity.current.fontScale
-        val effectiveWidth = availableWidth / fontScale
-        val compact = availableHeight < 340.dp || availableWidth < 650.dp || fontScale > 1.25f
-        val singleColumnCards = effectiveWidth < 440.dp
-        val sidePadding = if (compact) 12.dp else 20.dp
-        val verticalPadding = if (compact) 8.dp else 12.dp
-        val contentHeight = (availableHeight - verticalPadding * 2f).coerceAtLeast(0.dp)
-        val previewHeight = (contentHeight * if (compact) 0.24f else 0.36f).coerceIn(60.dp, 210.dp)
-        val cardHeight = if (compact) previewHeight + 68.dp else
-            (contentHeight - 140.dp).coerceAtLeast(previewHeight + 68.dp)
-        val compactButtonPadding = PaddingValues(
-            horizontal = if (compact) 12.dp else 18.dp,
-            vertical = 8.dp
+        NeonGarageBackdrop(
+            modifier = Modifier.fillMaxSize(),
+            flagSignCenterXFraction = 0.14f,
+            flagSignCenterYFraction = 0.36f,
+            showFlagSign = maxWidth >= 780.dp
         )
+
+        val fontScale = LocalDensity.current.fontScale
+        val stacked = (maxWidth / fontScale) < 460.dp || maxHeight < 300.dp
+        val compact = maxWidth < 740.dp || maxHeight < 370.dp || fontScale > 1.25f
+        val showSideCar = maxWidth >= 900.dp && !stacked
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = sidePadding, vertical = verticalPadding),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(
+                    horizontal = if (compact) 10.dp else 18.dp,
+                    vertical = if (compact) 6.dp else 10.dp
+                ),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Top bar: Leave + Room Code with Copy/Share + Connection Badge
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onLeaveRoom,
-                        border = BorderStroke(1.dp, DangerCrimson.copy(alpha = 0.65f)),
-                        contentPadding = compactButtonPadding,
-                        modifier = Modifier
-                            .align(Alignment.CenterVertically)
-                            .heightIn(min = 48.dp)
-                            .testTag("btn_lobby_leave")
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = DangerCrimson)
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(if (multiplayerState.isHost) R.string.close_room else R.string.btn_leave_room), color = IceWhite, fontSize = 11.sp)
-                    }
+            // Top bar matching Reference Image 8 (Administrar Sala / Sala Online)
+            NeonScreenTopBar(
+                title = stringResource(if (multiplayerState.isHost) R.string.manage_room else R.string.lobby_title),
+                titleIcon = Icons.Filled.ManageAccounts,
+                onBack = onLeaveRoom,
+                backTag = "btn_lobby_top_back",
+                compact = compact || stacked
+            )
 
-                    // Room code pill with instant Copy & Share
-                    Surface(
-                        color = CockpitSlate,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.5.dp, ElectricBlue),
-                        modifier = Modifier.align(Alignment.CenterVertically)
-                    ) {
-                        FlowRow(
-                            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Text(
-                                text = stringResource(if (multiplayerState.isHost) R.string.manage_room else R.string.lobby_title),
-                                fontFamily = OrbitronFontFamily,
-                                fontSize = 11.sp,
-                                color = SilverMist,
-                                modifier = Modifier.align(Alignment.CenterVertically)
-                            )
-                            Text(
-                                text = roomCode,
-                                fontFamily = JetBrainsMonoFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = if (compact) 16.sp else 18.sp,
-                                letterSpacing = if (compact) 1.5.sp else 2.sp,
-                                color = NeonCyan,
-                                softWrap = false,
-                                modifier = Modifier.align(Alignment.CenterVertically).testTag("lobby_room_code")
-                            )
-                            Row(modifier = Modifier.align(Alignment.CenterVertically)) {
-                                IconButton(
-                                    onClick = { copyRoomCode(context, roomCode) },
-                                    modifier = Modifier.size(48.dp).testTag("btn_lobby_copy")
-                                ) {
-                                    Icon(Icons.Filled.ContentCopy, contentDescription = "Copiar código", tint = ElectricBlue, modifier = Modifier.size(18.dp))
-                                }
-                                IconButton(
-                                    onClick = { shareRoomCode(context, roomCode) },
-                                    modifier = Modifier.size(48.dp).testTag("btn_lobby_share")
-                                ) {
-                                    Icon(Icons.Filled.Share, contentDescription = "Compartir código", tint = ElectricBlue, modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
-
-                    Box(modifier = Modifier.align(Alignment.CenterVertically)) {
-                        ConnectionBadge(status = multiplayerState.connectionStatus)
-                    }
-                }
-
-                // Middle: Side-by-side (or stacked on narrow/large-text screens) Player 1 vs Player 2 cards
-                Text(
-                    stringResource(R.string.room_connected_count, multiplayerState.players.count { it.connected }, multiplayerState.roomCapacity),
-                    color = IceWhite
-                )
-                FlowRow(
+            // Main content area: Players panel + Room Controls panel
+            if (stacked) {
+                Column(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
-                        .padding(vertical = if (compact) 8.dp else 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    maxItemsInEachRow = if (singleColumnCards) 1 else 2
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    for (slot in 0 until multiplayerState.roomCapacity) {
-                        val player = multiplayerState.players.firstOrNull { it.slot == slot }
-                        LobbyPlayerCard(
-                            slotTitle = if (slot == 0) stringResource(R.string.player_1_label)
-                            else stringResource(R.string.lobby_guest_label, slot + 1),
-                            player = player,
-                            isLocal = player != null && player.playerId == multiplayerState.localPlayerId,
-                            previewHeight = previewHeight,
-                            onKick = if (multiplayerState.isHost && multiplayerState.supportsHostControls &&
-                                multiplayerState.phase == RoomPhase.LOBBY && player != null && !player.isHost
-                            ) {
-                                { onKickPlayer(player.playerId) }
-                            } else null,
-                            modifier = Modifier.weight(1f).heightIn(min = cardHeight)
-                                .testTag("lobby_player_${slot + 1}_card")
-                        )
-                    }
-                }
-
-                if (multiplayerState.isHost && multiplayerState.supportsCircuitSelection) {
-                    Text(stringResource(R.string.select_circuit), color = IceWhite)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        for (circuit in CircuitId.entries) {
-                            FilterChip(
-                                selected = selectedCircuit == circuit,
-                                onClick = { selectedCircuit = circuit },
-                                label = { Text(stringResource(circuit.titleResource())) },
-                                modifier = Modifier.testTag("lobby_track_${circuit.wireId}")
-                            )
-                        }
-                    }
-                }
-
-                // Helpful readiness hint
-                Text(
-                    text = when {
-                        multiplayerState.canHostStartRace -> "¡Todos listos! Inicia la carrera."
-                        multiplayerState.isHost -> stringResource(R.string.lobby_need_capacity_ready, multiplayerState.roomCapacity)
-                        else -> stringResource(R.string.lobby_waiting_host)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (multiplayerState.canHostStartRace) RacingGreen else SilverMist,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp)
-                )
-
-            }
-
-            // Bottom Action Bar: Edit Setup + LISTO + INICIAR CARRERA (Host exclusive)
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onEditSetup,
-                    enabled = !localReady,
-                    border = BorderStroke(1.dp, TrackBorderBlue),
-                    contentPadding = compactButtonPadding,
-                    modifier = Modifier
-                        .align(Alignment.CenterVertically)
-                        .heightIn(min = 50.dp)
-                        .testTag("btn_lobby_edit_setup")
-                ) {
-                    Icon(Icons.Filled.Edit, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.btn_edit_setup),
-                        color = IceWhite,
-                        fontSize = 11.sp,
-                        textAlign = TextAlign.Center
+                    RoomControlPanel(
+                        multiplayerState = multiplayerState,
+                        roomCode = roomCode,
+                        selectedCircuit = selectedCircuit,
+                        compact = true,
+                        scrollable = false,
+                        onSelectCircuit = { selectedCircuit = it },
+                        onCopy = { copyRoomCode(context, roomCode) },
+                        onShare = { shareRoomCode(context, roomCode) }
+                    )
+                    ConnectedPlayersPanel(
+                        multiplayerState = multiplayerState,
+                        compact = true,
+                        scrollable = false,
+                        onKickPlayer = onKickPlayer
                     )
                 }
-
-                FlowRow(
-                    modifier = Modifier.align(Alignment.CenterVertically),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+            } else {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // LISTO / CANCELAR LISTO button
-                    Button(
-                        onClick = onToggleReady,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (localReady) CautionAmber else RacingGreen,
-                            contentColor = VoidBlack
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                        contentPadding = compactButtonPadding,
-                        modifier = Modifier
-                            .heightIn(min = 50.dp)
-                            .testTag("btn_lobby_ready")
-                    ) {
-                        Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = if (localReady) stringResource(R.string.btn_cancel_ready) else stringResource(R.string.btn_ready),
-                            style = MaterialTheme.typography.labelLarge,
-                            textAlign = TextAlign.Center
+                    if (showSideCar) {
+                        Vehicle3DPreview(
+                            vehicle = localVehicle,
+                            paintColor = localColor,
+                            appearance = multiplayerState.localPlayer?.appearance
+                                ?: com.example.racingbrothers.vehicles.VehicleAppearance(),
+                            autoRotate = false,
+                            interactiveDrag = true,
+                            initialYawDeg = 28f,
+                            initialPitchDeg = 13f,
+                            zoomScale = 1.05f,
+                            garageLighting = true,
+                            showTurntable = false,
+                            drawLocalBackdrop = false,
+                            modifier = Modifier
+                                .weight(0.22f)
+                                .fillMaxHeight()
                         )
                     }
 
-                    // Exclusive Host Start Race Button
-                    if (multiplayerState.isHost) {
-                        Button(
-                            onClick = { onStartRace(selectedCircuit) },
-                            enabled = multiplayerState.canHostStartRace,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ElectricBlue,
-                                contentColor = VoidBlack
-                            ),
-                            shape = RoundedCornerShape(14.dp),
-                            contentPadding = compactButtonPadding,
-                            modifier = Modifier
-                                .heightIn(min = 50.dp)
-                                .testTag("btn_start_race")
-                        ) {
-                            Icon(Icons.Filled.Flag, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = stringResource(R.string.btn_start_race),
-                                style = MaterialTheme.typography.labelLarge,
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                    ConnectedPlayersPanel(
+                        multiplayerState = multiplayerState,
+                        compact = compact,
+                        scrollable = true,
+                        onKickPlayer = onKickPlayer,
+                        modifier = Modifier
+                            .weight(if (showSideCar) 0.39f else 0.48f)
+                            .fillMaxHeight()
+                    )
+
+                    RoomControlPanel(
+                        multiplayerState = multiplayerState,
+                        roomCode = roomCode,
+                        selectedCircuit = selectedCircuit,
+                        compact = compact,
+                        scrollable = true,
+                        onSelectCircuit = { selectedCircuit = it },
+                        onCopy = { copyRoomCode(context, roomCode) },
+                        onShare = { shareRoomCode(context, roomCode) },
+                        modifier = Modifier
+                            .weight(if (showSideCar) 0.39f else 0.52f)
+                            .fillMaxHeight()
+                    )
+                }
+            }
+
+            // Bottom Action Bar matching Reference Image 8: Cerrar Sala (red) · Setup · Listo · Iniciar Carrera (green)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NeonSlantedButton(
+                    text = stringResource(if (multiplayerState.isHost) R.string.close_room else R.string.btn_leave_room),
+                    icon = Icons.AutoMirrored.Filled.ExitToApp,
+                    tone = NeonButtonTone.DANGER_RED,
+                    compact = compact || stacked,
+                    slantDp = 8.dp,
+                    contentPadding = PaddingValues(horizontal = if (compact) 8.dp else 14.dp, vertical = 6.dp),
+                    onClick = onLeaveRoom,
+                    modifier = Modifier
+                        .weight(0.95f)
+                        .testTag("btn_lobby_leave")
+                )
+
+                NeonSlantedButton(
+                    text = stringResource(R.string.btn_edit_setup),
+                    icon = Icons.Filled.Edit,
+                    tone = NeonButtonTone.GLASS_DARK,
+                    enabled = !localReady,
+                    compact = compact || stacked,
+                    slantDp = 8.dp,
+                    contentPadding = PaddingValues(horizontal = if (compact) 8.dp else 12.dp, vertical = 6.dp),
+                    onClick = onEditSetup,
+                    modifier = Modifier
+                        .weight(1.05f)
+                        .testTag("btn_lobby_edit_setup")
+                )
+
+                NeonSlantedButton(
+                    text = if (localReady) stringResource(R.string.btn_cancel_ready) else stringResource(R.string.btn_ready),
+                    icon = Icons.Filled.CheckCircle,
+                    tone = if (localReady) NeonButtonTone.GLASS_DARK else NeonButtonTone.PRIMARY_CYAN,
+                    compact = compact || stacked,
+                    slantDp = 8.dp,
+                    contentPadding = PaddingValues(horizontal = if (compact) 8.dp else 14.dp, vertical = 6.dp),
+                    onClick = onToggleReady,
+                    modifier = Modifier
+                        .weight(0.9f)
+                        .testTag("btn_lobby_ready")
+                )
+
+                if (multiplayerState.isHost) {
+                    NeonSlantedButton(
+                        text = stringResource(R.string.btn_start_race),
+                        icon = Icons.Filled.Flag,
+                        trailingIcon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        tone = NeonButtonTone.SUCCESS_GREEN,
+                        enabled = multiplayerState.canHostStartRace,
+                        compact = compact || stacked,
+                        slantDp = 8.dp,
+                        contentPadding = PaddingValues(horizontal = if (compact) 8.dp else 16.dp, vertical = 6.dp),
+                        onClick = { onStartRace(selectedCircuit) },
+                        modifier = Modifier
+                            .weight(1.15f)
+                            .testTag("btn_start_race")
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectedPlayersPanel(
+    multiplayerState: MultiplayerUiState,
+    compact: Boolean,
+    scrollable: Boolean,
+    onKickPlayer: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    NeonGlassPanel(
+        borderColor = ElectricBlue.copy(alpha = 0.78f),
+        cornerRadius = 16.dp,
+        modifier = modifier
+    ) {
+        val columnModifier = if (scrollable) {
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+        } else {
+            Modifier.fillMaxWidth()
+        }
+        Column(
+            modifier = columnModifier
+                .padding(horizontal = if (compact) 10.dp else 14.dp, vertical = if (compact) 8.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Groups,
+                    contentDescription = null,
+                    tint = IceWhite,
+                    modifier = Modifier.size(if (compact) 18.dp else 22.dp)
+                )
+                Text(
+                    text = stringResource(
+                        R.string.room_connected_count,
+                        multiplayerState.players.count { it.connected },
+                        multiplayerState.roomCapacity
+                    ),
+                    fontFamily = OrbitronFontFamily,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = if (compact) 12.sp else 14.sp,
+                    color = IceWhite,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            for (slot in 0 until multiplayerState.roomCapacity) {
+                val player = multiplayerState.players.firstOrNull { it.slot == slot }
+                LobbyPlayerRow(
+                    slotIndex = slot,
+                    player = player,
+                    isLocal = player != null && player.playerId == multiplayerState.localPlayerId,
+                    compact = compact,
+                    onKick = if (multiplayerState.isHost && multiplayerState.supportsHostControls &&
+                        multiplayerState.phase == RoomPhase.LOBBY && player != null && !player.isHost
+                    ) {
+                        { onKickPlayer(player.playerId) }
+                    } else null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("lobby_player_${slot + 1}_card")
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LobbyPlayerRow(
+    slotIndex: Int,
+    player: PlayerSlotState?,
+    isLocal: Boolean,
+    compact: Boolean,
+    onKick: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val isHostSlot = player?.isHost == true
+    val shape = RoundedCornerShape(12.dp)
+    val borderColor = when {
+        player == null -> TrackBorderBlue.copy(alpha = 0.65f)
+        isHostSlot -> NeonCyan
+        player.ready -> RacingGreen
+        isLocal -> ElectricBlue
+        else -> TrackBorderBlue
+    }
+
+    Row(
+        modifier = modifier
+            .heightIn(min = if (compact) 46.dp else 54.dp)
+            .clip(shape)
+            .background(
+                when {
+                    player == null -> Brush.horizontalGradient(listOf(VoidBlack.copy(alpha = 0.52f), VoidBlack.copy(alpha = 0.44f)))
+                    isHostSlot -> Brush.horizontalGradient(listOf(ElectricBlue.copy(alpha = 0.24f), GarageGlass))
+                    else -> Brush.horizontalGradient(listOf(GarageGlassStrong, VoidBlack.copy(alpha = 0.65f)))
+                },
+                shape
+            )
+            .border(if (isHostSlot || player?.ready == true) 1.5.dp else 1.dp, borderColor, shape)
+            .padding(horizontal = if (compact) 8.dp else 10.dp, vertical = if (compact) 5.dp else 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (player == null) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(if (compact) 32.dp else 38.dp)
+                    .clip(CircleShape)
+                    .background(VoidBlack.copy(alpha = 0.72f))
+                    .border(1.dp, TrackBorderBlue, CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PersonOutline,
+                    contentDescription = null,
+                    tint = SilverMist.copy(alpha = 0.65f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Text(
+                text = stringResource(R.string.lobby_waiting_slot),
+                style = MaterialTheme.typography.bodyMedium,
+                fontStyle = FontStyle.Italic,
+                color = SilverMist.copy(alpha = 0.72f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            val vehicle = VehicleCatalog.getVehicle(player.vehicleId)
+            val color = VehicleCatalog.getPaintColor(player.colorId)
+            val character = CharacterCatalog.getCharacter(player.characterId)
+
+            if (isHostSlot) {
+                Icon(
+                    imageVector = Icons.Filled.EmojiEvents,
+                    contentDescription = stringResource(R.string.lobby_host_badge),
+                    tint = CautionAmber,
+                    modifier = Modifier.size(if (compact) 16.dp else 18.dp)
+                )
+            }
+
+            DriverPortraitAvatar(
+                character = character,
+                selected = isLocal || isHostSlot,
+                showCheckmark = false,
+                modifier = Modifier
+                    .size(if (compact) 34.dp else 40.dp)
+                    .clip(CircleShape)
+            )
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Text(
+                        text = buildString {
+                            append("Jugador ${slotIndex + 1}")
+                            if (isHostSlot) append(" (Anfitrión)")
+                            if (isLocal) append(" · TÚ")
+                        },
+                        fontFamily = OrbitronFontFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = if (compact) 10.sp else 11.5.sp,
+                        color = if (isHostSlot) IceWhite else IceWhite.copy(alpha = 0.92f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (player.ready) RacingGreen else CautionAmber)
+                    )
+                    Text(
+                        text = if (player.ready) stringResource(R.string.status_ready) else stringResource(R.string.status_not_ready),
+                        fontFamily = OrbitronFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.5.sp,
+                        color = if (player.ready) RacingGreen else SilverMist,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "· ${vehicle.displayName} (${color.displayName})",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 9.5.sp,
+                        color = SilverMist,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            if (onKick != null) {
+                Surface(
+                    color = DeepCrimsonSurface,
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.2.dp, NeonCrimson),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    IconButton(
+                        onClick = onKick,
+                        modifier = Modifier.testTag("kick_player_${player.slot}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = stringResource(R.string.kick_player),
+                            tint = IceWhite,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
@@ -358,160 +553,269 @@ fun LobbyScreen(
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
-private fun LobbyPlayerCard(
-    slotTitle: String,
-    player: PlayerSlotState?,
-    isLocal: Boolean,
-    previewHeight: Dp,
-    modifier: Modifier = Modifier,
-    onKick: (() -> Unit)? = null
+private fun RoomControlPanel(
+    multiplayerState: MultiplayerUiState,
+    roomCode: String,
+    selectedCircuit: CircuitId,
+    compact: Boolean,
+    scrollable: Boolean,
+    onSelectCircuit: (CircuitId) -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = CockpitSlate.copy(alpha = 0.82f),
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(
-            width = if (player?.ready == true) 2.dp else 1.2.dp,
-            color = when {
-                player == null -> TrackBorderBlue
-                player.ready -> RacingGreen
-                isLocal -> ElectricBlue
-                else -> TrackBorderBlue
-            }
-        ),
+    NeonGlassPanel(
+        borderColor = ElectricBlue.copy(alpha = 0.78f),
+        cornerRadius = 16.dp,
         modifier = modifier
     ) {
-        if (player == null) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(14.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.HourglassEmpty,
-                    contentDescription = null,
-                    tint = SilverMist,
-                    modifier = Modifier.size(34.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = slotTitle,
-                    fontFamily = OrbitronFontFamily,
-                    fontSize = 12.sp,
-                    color = ElectricBlue,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.waiting_opponent),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = SilverMist,
-                    textAlign = TextAlign.Center
-                )
-            }
+        val columnModifier = if (scrollable) {
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
         } else {
-            val vehicle = VehicleCatalog.getVehicle(player.vehicleId)
-            val color = VehicleCatalog.getPaintColor(player.colorId)
-            val character = CharacterCatalog.getCharacter(player.characterId)
+            Modifier.fillMaxWidth()
+        }
+        Column(
+            modifier = columnModifier
+                .padding(horizontal = if (compact) 10.dp else 14.dp, vertical = if (compact) 8.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 7.dp else 10.dp)
+        ) {
+            // Row 1: Connection Status + Signal Bars (matching Reference Image 8)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ConnectionBadge(status = multiplayerState.connectionStatus)
+                SignalBarsIndicator(connected = multiplayerState.connectionStatus == ConnectionStatus.CONNECTED)
+            }
 
-            Column(
+            // Row 2: Room Code box + Copy & Share
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(VoidBlack.copy(alpha = 0.50f))
+                    .border(1.dp, ElectricBlue.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.align(Alignment.CenterVertically),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(9.dp)
-                                .clip(CircleShape)
-                                .background(if (player.connected) RacingGreen else DangerCrimson)
-                        )
-                        Text(
-                            text = slotTitle + if (isLocal) " (TÚ)" else "",
-                            fontFamily = OrbitronFontFamily,
-                            fontSize = 11.sp,
-                            color = if (isLocal) ElectricBlue else IceWhite
-                        )
-                    }
-
-                    Surface(
-                        color = if (player.ready) RacingGreen.copy(alpha = 0.2f) else VoidBlack.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, if (player.ready) RacingGreen else TrackBorderBlue),
-                        modifier = Modifier.align(Alignment.CenterVertically)
-                    ) {
-                        Text(
-                            text = if (player.ready) stringResource(R.string.status_ready) else stringResource(R.string.status_not_ready),
-                            fontFamily = OrbitronFontFamily,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (player.ready) RacingGreen else SilverMist,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-                // Live 3D preview of the player's car + color + seated driver!
-                Vehicle3DPreview(
-                    vehicle = vehicle,
-                    paintColor = color,
-                    driver = character,
-                    appearance = player.appearance,
-                    autoRotate = true,
-                    interactiveDrag = false,
-                    zoomScale = 1.05f,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(previewHeight)
+                Icon(Icons.Filled.QrCode2, contentDescription = null, tint = IceWhite, modifier = Modifier.size(18.dp))
+                Text(
+                    text = stringResource(R.string.room_code_label),
+                    fontFamily = OrbitronFontFamily,
+                    fontSize = if (compact) 9.sp else 10.sp,
+                    color = SilverMist,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
-                if (onKick != null) {
-                    TextButton(onClick = onKick, modifier = Modifier.testTag("kick_player_${player.slot}")) {
-                        Text(stringResource(R.string.kick_player), color = DangerCrimson)
-                    }
-                }
-
-                // Vehicle & Driver caption strip
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                Surface(
+                    color = ElectricBlue.copy(alpha = 0.22f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.5.dp, NeonCyan)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = vehicle.displayName.uppercase(),
-                            fontFamily = OrbitronFontFamily,
-                            fontSize = 13.sp,
-                            color = IceWhite
-                        )
-                        Text(
-                            text = "${color.displayName} · Piloto: ${character.displayName} \"${character.callsign}\"",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SilverMist
-                        )
-                    }
                     Text(
-                        text = if (player.connected) stringResource(R.string.status_online) else stringResource(R.string.status_offline),
+                        text = roomCode,
                         fontFamily = JetBrainsMonoFontFamily,
-                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = if (compact) 14.sp else 16.sp,
+                        letterSpacing = 2.sp,
+                        color = IceWhite,
                         softWrap = false,
-                        color = if (player.connected) RacingGreen else DangerCrimson,
-                        modifier = Modifier.align(Alignment.CenterVertically)
+                        modifier = Modifier
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .testTag("lobby_room_code")
                     )
                 }
+                IconButton(
+                    onClick = onCopy,
+                    modifier = Modifier.size(48.dp).testTag("btn_lobby_copy")
+                ) {
+                    Icon(Icons.Filled.ContentCopy, contentDescription = "Copiar código", tint = NeonCyan, modifier = Modifier.size(18.dp))
+                }
+                IconButton(
+                    onClick = onShare,
+                    modifier = Modifier.size(48.dp).testTag("btn_lobby_share")
+                ) {
+                    Icon(Icons.Filled.Share, contentDescription = "Compartir código", tint = NeonCyan, modifier = Modifier.size(18.dp))
+                }
             }
+
+            // Row 3: Room Capacity indicator [2] [3] [4]
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Filled.Groups, contentDescription = null, tint = IceWhite, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = stringResource(R.string.lobby_capacity_label),
+                        fontFamily = OrbitronFontFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = if (compact) 10.sp else 11.sp,
+                        color = IceWhite
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (cap in 2..4) {
+                        val active = multiplayerState.roomCapacity == cap
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .width(34.dp)
+                                .height(28.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (active) ElectricBlue.copy(alpha = 0.36f) else VoidBlack.copy(alpha = 0.65f))
+                                .border(
+                                    width = if (active) 1.6.dp else 1.dp,
+                                    color = if (active) NeonCyan else TrackBorderBlue,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                        ) {
+                            Text(
+                                text = "$cap",
+                                fontFamily = OrbitronFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = if (active) IceWhite else SilverMist
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Row 4: Visual Circuit Selector (Reference Image 8)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Filled.Flag, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = stringResource(R.string.select_circuit),
+                        fontFamily = OrbitronFontFamily,
+                        fontStyle = FontStyle.Italic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = if (compact) 10.5.sp else 12.sp,
+                        color = IceWhite
+                    )
+                }
+
+                val canPickCircuit = multiplayerState.isHost && multiplayerState.supportsCircuitSelection
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    for (circuit in CircuitId.entries) {
+                        val isSelected = selectedCircuit == circuit
+                        val cardShape = RoundedCornerShape(10.dp)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(cardShape)
+                                .background(GarageGlassStrong, cardShape)
+                                .border(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) NeonCyan else TrackBorderBlue,
+                                    shape = cardShape
+                                )
+                                .clickable(enabled = canPickCircuit, role = Role.RadioButton) {
+                                    onSelectCircuit(circuit)
+                                }
+                                .semantics { selected = isSelected }
+                                .testTag("lobby_track_${circuit.wireId}")
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(if (compact) 42.dp else 54.dp)
+                            ) {
+                                CircuitCardArtwork(
+                                    circuit = circuit,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                if (isSelected) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(3.dp)
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(NeonCyan)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Check,
+                                            contentDescription = null,
+                                            tint = VoidBlack,
+                                            modifier = Modifier.size(10.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                text = stringResource(circuit.titleResource()),
+                                fontFamily = OrbitronFontFamily,
+                                fontSize = 8.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) IceWhite else SilverMist,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 3.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Readiness status hint
+            Text(
+                text = when {
+                    multiplayerState.canHostStartRace -> "¡Todos listos! Inicia la carrera."
+                    multiplayerState.isHost -> stringResource(R.string.lobby_need_capacity_ready, multiplayerState.roomCapacity)
+                    else -> stringResource(R.string.lobby_waiting_host)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = if (multiplayerState.canHostStartRace) RacingGreen else SilverMist,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
+
+@Composable
+private fun SignalBarsIndicator(connected: Boolean) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        val heights = listOf(6.dp, 10.dp, 14.dp, 18.dp)
+        heights.forEachIndexed { idx, h ->
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(h)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(
+                        if (connected) RacingGreen else if (idx == 0) CautionAmber else TrackBorderBlue
+                    )
+            )
+        }
+    }
+}
+
 internal fun CircuitId.titleResource(): Int = when (this) {
     CircuitId.SPEEDWAY -> R.string.track_speedway
     CircuitId.MOUNTAIN -> R.string.track_mountain

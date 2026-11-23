@@ -4,20 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -106,14 +99,18 @@ fun RacingBrothersApp(
             )
         }
         composable(RacingRoutes.CREDITS) {
-            CreditsScreen(onBack = { navController.popBackStack() })
+            CreditsScreen(
+                onBack = { navController.popBackStack() },
+                previewVehicleId = prefs.selectedVehicleId,
+                previewColorId = prefs.selectedColorId,
+                previewAppearance = prefs.appearance
+            )
         }
         composable(RacingRoutes.ONLINE) {
-            var selectingCapacity by rememberSaveable { mutableStateOf(false) }
             OnlineMenuScreen(
-                onCreate = {
+                onCreateWithCapacity = { capacity ->
                     viewModel.playClick()
-                    selectingCapacity = true
+                    navController.navigate("${RacingRoutes.CREATE_ROOM}/$capacity")
                 },
                 onJoin = {
                     viewModel.playClick()
@@ -124,35 +121,11 @@ fun RacingBrothersApp(
                     }
                     navController.navigate(RacingRoutes.JOIN_ROOM)
                 },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                previewVehicleId = prefs.selectedVehicleId,
+                previewColorId = prefs.selectedColorId,
+                previewAppearance = prefs.appearance
             )
-            if (selectingCapacity) {
-                AlertDialog(
-                    onDismissRequest = { selectingCapacity = false },
-                    title = { Text(stringResource(R.string.room_capacity_title)) },
-                    text = {
-                        Column {
-                            for (capacity in 2..4) {
-                                TextButton(
-                                    modifier = Modifier.testTag("room_capacity_$capacity"),
-                                    onClick = {
-                                        selectingCapacity = false
-                                        navController.navigate("${RacingRoutes.CREATE_ROOM}/$capacity")
-                                    }
-                                ) {
-                                    Text(stringResource(R.string.room_capacity_option, capacity))
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = {},
-                    dismissButton = {
-                        TextButton(onClick = { selectingCapacity = false }) {
-                            Text(stringResource(R.string.btn_back))
-                        }
-                    }
-                )
-            }
         }
 
         composable("${RacingRoutes.CREATE_ROOM}/{capacity}") { entry ->
@@ -211,12 +184,14 @@ fun RacingBrothersApp(
                 initialVehicleId = prefs.selectedVehicleId,
                 initialColorId = prefs.selectedColorId,
                 initialAppearance = prefs.appearance,
+                initialCharacterId = prefs.selectedCharacterId,
                 roomCode = mpState.roomCode,
                 onBack = {
                     viewModel.playClick()
                     navController.popBackStack()
                 },
                 onSaveAppearance = viewModel::saveVehicleAppearance,
+                onSelectCharacter = viewModel::confirmCharacterSelection,
                 onConfirmCar = { vehicleId, colorId ->
                     viewModel.playClick()
                     viewModel.confirmVehicleSelection(vehicleId, colorId)

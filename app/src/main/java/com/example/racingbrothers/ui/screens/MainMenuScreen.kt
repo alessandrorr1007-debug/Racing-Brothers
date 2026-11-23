@@ -1,9 +1,9 @@
 package com.example.racingbrothers.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -31,43 +31,57 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Monitor
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.TireRepair
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,15 +92,23 @@ import com.example.racingbrothers.camera.CameraMode
 import com.example.racingbrothers.characters.CharacterCatalog
 import com.example.racingbrothers.storage.GraphicsQuality
 import com.example.racingbrothers.storage.UserPreferences
+import com.example.racingbrothers.ui.components.NeonButtonTone
+import com.example.racingbrothers.ui.components.NeonGarageBackdrop
+import com.example.racingbrothers.ui.components.NeonGlassPanel
+import com.example.racingbrothers.ui.components.NeonSlantedButton
+import com.example.racingbrothers.ui.components.RacingBrothersLogo
+import com.example.racingbrothers.ui.components.SlantedCardShape
 import com.example.racingbrothers.ui.components.Vehicle3DPreview
 import com.example.racingbrothers.vehicles.VehicleCatalog
-import com.example.ui.theme.AsphaltNavy
 import com.example.ui.theme.CockpitSlate
 import com.example.ui.theme.ElectricBlue
+import com.example.ui.theme.GarageGlass
+import com.example.ui.theme.GarageGlassStrong
 import com.example.ui.theme.IceWhite
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.OrbitronFontFamily
+import com.example.ui.theme.RacingGreen
 import com.example.ui.theme.SilverMist
 import com.example.ui.theme.TrackBorderBlue
 import com.example.ui.theme.VoidBlack
@@ -114,31 +136,15 @@ fun MainMenuScreen(
     val selectedDriver = remember(preferences.selectedCharacterId) {
         CharacterCatalog.getCharacter(preferences.selectedCharacterId)
     }
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(VoidBlack)) {
-        // Generated night motorsport circuit background
-        Image(
-            painter = painterResource(id = R.drawable.img_circuit_hero_bg_1795364286834),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            alpha = 0.50f,
-            modifier = Modifier.fillMaxSize()
-        )
 
-        // Atmospheric dark blue/black radial & diagonal vignette + speed accent streaks
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            VoidBlack.copy(alpha = 0.94f),
-                            AsphaltNavy.copy(alpha = 0.72f),
-                            VoidBlack.copy(alpha = 0.58f)
-                        )
-                    )
-                )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(VoidBlack)) {
+        // Neon Blue & Red Garage Studio Backdrop
+        NeonGarageBackdrop(
+            modifier = Modifier.fillMaxSize(),
+            flagSignCenterXFraction = 0.72f,
+            flagSignCenterYFraction = 0.28f,
+            showFlagSign = true
         )
-        SpeedLightStreaksOverlay(modifier = Modifier.fillMaxSize())
 
         val safeInsets = WindowInsets.safeDrawing
         val safePadding = safeInsets.asPaddingValues()
@@ -149,267 +155,242 @@ fun MainMenuScreen(
         val availableHeight = maxHeight - safePadding.calculateTopPadding() - safePadding.calculateBottomPadding()
         val effectiveWidth = availableWidth / fontScale
         val narrow = availableWidth < 640.dp
-        val compactText = effectiveWidth < 560.dp || availableHeight < 340.dp
+        val compact = effectiveWidth < 580.dp || availableHeight < 360.dp
         val stacked = availableWidth < 460.dp
-        val horizontalPadding = if (narrow) 12.dp else 24.dp
-        val verticalPadding = if (availableHeight < 360.dp) 8.dp else 16.dp
-        val panelHeight = (availableHeight - verticalPadding * 2).coerceAtLeast(0.dp)
+        val showRightPills = availableWidth >= 700.dp && fontScale <= 1.25f
 
-        val racingFontSize = when {
-            effectiveWidth < 400.dp -> 20.sp
-            effectiveWidth < 540.dp -> 24.sp
-            else -> 30.sp
-        }
-        val brothersFontSize = when {
-            effectiveWidth < 400.dp -> 16.sp
-            effectiveWidth < 540.dp -> 19.sp
-            else -> 24.sp
-        }
-        val racingLetterSpacing = if (compactText) 2.sp else 4.sp
-        val brothersLetterSpacing = if (compactText) 2.sp else 5.sp
-        val actionButtonPadding = PaddingValues(
-            horizontal = if (compactText) 12.dp else 20.dp,
-            vertical = 8.dp
-        )
+        val horizontalPadding = if (narrow) 12.dp else 22.dp
+        val verticalPadding = if (availableHeight < 360.dp) 6.dp else 12.dp
+        val buttonGap = if (availableHeight < 380.dp) 4.dp else 6.dp
 
-        val menuPanelContent: @Composable (Modifier) -> Unit = { panelModifier ->
+        val menuColumn: @Composable (Modifier) -> Unit = { colModifier ->
             Column(
-                modifier = panelModifier,
+                modifier = colModifier,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top: Logo & subtitle
-                Column(
-                    modifier = Modifier.padding(bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .width(5.dp)
-                                .height(if (compactText) 38.dp else 46.dp)
-                                .background(
-                                    Brush.verticalGradient(listOf(NeonCyan, ElectricBlue)),
-                                    RoundedCornerShape(4.dp)
-                                )
-                        )
-                        Spacer(Modifier.width(if (compactText) 8.dp else 12.dp))
-                        Column {
-                            Text(
-                                text = stringResource(R.string.brand_title_racing),
-                                fontFamily = OrbitronFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = racingFontSize,
-                                letterSpacing = racingLetterSpacing,
-                                maxLines = 1,
-                                softWrap = false,
-                                color = IceWhite,
-                                modifier = Modifier.testTag("logo_racing")
-                            )
-                            Text(
-                                text = stringResource(R.string.brand_title_brothers),
-                                fontFamily = OrbitronFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = brothersFontSize,
-                                letterSpacing = brothersLetterSpacing,
-                                maxLines = 1,
-                                softWrap = false,
-                                color = ElectricBlue,
-                                modifier = Modifier.testTag("logo_brothers")
-                            )
-                        }
+                // Brand logo
+                RacingBrothersLogo(
+                    compact = compact,
+                    showSubtitle = true,
+                    racingFontSize = when {
+                        effectiveWidth < 420.dp -> 17.sp
+                        compact -> 20.sp
+                        else -> 26.sp
+                    },
+                    brothersFontSize = when {
+                        effectiveWidth < 420.dp -> 14.sp
+                        compact -> 17.sp
+                        else -> 22.sp
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.brand_subtitle),
-                        fontFamily = JetBrainsMonoFontFamily,
-                        fontSize = if (compactText) 10.sp else 11.sp,
-                        letterSpacing = if (compactText) 0.8.sp else 1.4.sp,
-                        color = SilverMist
-                    )
-                }
+                )
 
-                // Middle: Primary & Secondary online room buttons
-                Column(
-                    modifier = Modifier.padding(bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(if (panelHeight < 340.dp) 8.dp else 12.dp)
-                ) {
-                    // Primary button: CREAR SALA
-                    Button(
+                Spacer(Modifier.height(if (compact) 4.dp else 8.dp))
+
+                // Compact 5-button racing menu stack (fits on one screen with zero scrolling needed)
+                Column(verticalArrangement = Arrangement.spacedBy(buttonGap)) {
+                    NeonSlantedButton(
+                        text = stringResource(if (onOpenOnline == null) R.string.btn_create_room else R.string.play_online),
+                        icon = if (onOpenOnline == null) Icons.Filled.AddCircle else Icons.Filled.Flag,
+                        tone = NeonButtonTone.PRIMARY_CYAN,
+                        compact = compact,
                         onClick = onOpenOnline ?: onCreateRoomClick,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ElectricBlue,
-                            contentColor = VoidBlack
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                        contentPadding = actionButtonPadding,
+                        contentPadding = PaddingValues(horizontal = if (compact) 12.dp else 16.dp, vertical = 6.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = if (panelHeight < 340.dp) 48.dp else 56.dp)
                             .testTag(if (onOpenOnline == null) "btn_create_room" else "btn_play_online")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.AddCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(if (compactText) 18.dp else 22.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(if (onOpenOnline == null) R.string.btn_create_room else R.string.play_online),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontSize = if (compactText) 13.sp else 16.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                    )
 
-                    // Secondary button: UNIRSE A SALA
-                    if (onOpenOnline == null) OutlinedButton(
-                        onClick = onJoinRoomClick,
-                        border = BorderStroke(2.dp, ElectricBlue.copy(alpha = 0.85f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = CockpitSlate.copy(alpha = 0.72f),
-                            contentColor = IceWhite
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                        contentPadding = actionButtonPadding,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = if (panelHeight < 340.dp) 48.dp else 54.dp)
-                            .testTag("btn_join_room")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.GroupAdd,
-                            contentDescription = null,
-                            tint = ElectricBlue,
-                            modifier = Modifier.size(if (compactText) 18.dp else 22.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
+                    if (onOpenOnline == null) {
+                        NeonSlantedButton(
                             text = stringResource(R.string.btn_join_room),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontSize = if (compactText) 13.sp else 15.sp,
-                            textAlign = TextAlign.Center,
-                            color = IceWhite
+                            icon = Icons.Filled.GroupAdd,
+                            tone = NeonButtonTone.GLASS_DARK,
+                            compact = compact,
+                            onClick = onJoinRoomClick,
+                            contentPadding = PaddingValues(horizontal = if (compact) 12.dp else 16.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("btn_join_room")
                         )
-                    }
-                    if (onOpenOnline != null) {
-                        for ((title, action) in listOf(
-                            R.string.menu_garage to onOpenGarage,
-                            R.string.menu_circuits to onOpenCircuits,
-                            R.string.btn_settings to { showSettingsDialog = true },
-                            R.string.menu_credits to onOpenCredits
-                        )) {
-                            if (action != null) {
-                                OutlinedButton(
-                                    onClick = action,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(
-                                        when (title) {
-                                            R.string.menu_garage -> "btn_open_garage"
-                                            R.string.menu_circuits -> "btn_open_circuits"
-                                            R.string.btn_settings -> "btn_open_settings"
-                                            else -> "btn_open_credits"
-                                        }
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    border = BorderStroke(1.dp, TrackBorderBlue),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = CockpitSlate.copy(alpha = 0.82f),
-                                        contentColor = IceWhite
-                                    )
-                                ) { Text(stringResource(title)) }
-                            }
+                    } else {
+                        if (onOpenGarage != null) {
+                            NeonSlantedButton(
+                                text = stringResource(R.string.menu_garage),
+                                icon = Icons.Filled.DirectionsCar,
+                                tone = NeonButtonTone.GLASS_DARK,
+                                compact = compact,
+                                onClick = onOpenGarage,
+                                contentPadding = PaddingValues(horizontal = if (compact) 12.dp else 16.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("btn_open_garage")
+                            )
+                        }
+                        if (onOpenCircuits != null) {
+                            NeonSlantedButton(
+                                text = stringResource(R.string.menu_circuits),
+                                icon = Icons.Filled.Route,
+                                tone = NeonButtonTone.GLASS_DARK,
+                                compact = compact,
+                                onClick = onOpenCircuits,
+                                contentPadding = PaddingValues(horizontal = if (compact) 12.dp else 16.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("btn_open_circuits")
+                            )
+                        }
+                        NeonSlantedButton(
+                            text = stringResource(R.string.btn_settings),
+                            icon = Icons.Filled.Settings,
+                            tone = NeonButtonTone.GLASS_DARK,
+                            compact = compact,
+                            onClick = { showSettingsDialog = true },
+                            contentPadding = PaddingValues(horizontal = if (compact) 12.dp else 16.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("btn_open_settings")
+                        )
+                        if (onOpenCredits != null) {
+                            NeonSlantedButton(
+                                text = stringResource(R.string.menu_credits),
+                                icon = Icons.Filled.Info,
+                                tone = NeonButtonTone.GLASS_DARK,
+                                compact = compact,
+                                onClick = onOpenCredits,
+                                contentPadding = PaddingValues(horizontal = if (compact) 12.dp else 16.dp, vertical = 6.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("btn_open_credits")
+                            )
                         }
                     }
                 }
 
-                // Bottom sound and graphics indicator
-                Surface(
-                    color = CockpitSlate.copy(alpha = 0.7f),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, TrackBorderBlue)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (preferences.soundEnabled) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
-                            contentDescription = null,
-                            tint = ElectricBlue,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = preferences.graphicsQuality.label,
-                            fontSize = 10.sp,
-                            color = SilverMist
-                        )
-                    }
-                }
+                Spacer(Modifier.height(4.dp))
+
+                // Subtle bottom version stamp
+                Text(
+                    text = stringResource(R.string.app_version_label),
+                    fontFamily = JetBrainsMonoFontFamily,
+                    fontStyle = FontStyle.Italic,
+                    fontSize = 10.sp,
+                    color = SilverMist.copy(alpha = 0.72f)
+                )
             }
         }
 
-        val showroomPanelContent: @Composable (Modifier) -> Unit = { previewModifier ->
-            Box(modifier = previewModifier) {
+        val showroomArea: @Composable (Modifier) -> Unit = { areaModifier ->
+            Box(modifier = areaModifier) {
+                // Live 3D sports car on rotating neon cyan turntable pedestal (no static car images)
                 Vehicle3DPreview(
                     vehicle = selectedVehicle,
                     paintColor = selectedColor,
                     driver = selectedDriver,
                     autoRotate = true,
                     interactiveDrag = true,
-                    zoomScale = 1.08f,
+                    initialYawDeg = 34f,
+                    initialPitchDeg = 14f,
+                    zoomScale = if (showRightPills) 1.16f else 1.10f,
+                    garageLighting = true,
+                    showTurntable = true,
                     appearance = preferences.appearance,
                     modifier = Modifier
                         .fillMaxSize()
+                        .padding(end = if (showRightPills) 84.dp else 0.dp)
                         .testTag("menu_3d_car_preview")
                 )
 
-                // Discreet Settings button top-right
-                if (onOpenOnline == null) Surface(
-                    color = CockpitSlate.copy(alpha = 0.85f),
-                    shape = CircleShape,
-                    border = BorderStroke(1.5.dp, TrackBorderBlue),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(48.dp)
+                // Top-right player capacity pill + glowing Wi-Fi icon (or legacy settings button)
+                Row(
+                    modifier = Modifier.align(Alignment.TopEnd),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    IconButton(
-                        onClick = { showSettingsDialog = true },
-                        modifier = Modifier.testTag("btn_open_settings")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = stringResource(R.string.btn_settings),
-                            tint = IceWhite
-                        )
+                    if (onOpenOnline != null) {
+                        val pillShape = SlantedCardShape(8.dp)
+                        Row(
+                            modifier = Modifier
+                                .clip(pillShape)
+                                .background(GarageGlassStrong, pillShape)
+                                .border(1.dp, ElectricBlue.copy(alpha = 0.65f), pillShape)
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Groups,
+                                contentDescription = null,
+                                tint = IceWhite,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.home_players_badge),
+                                fontFamily = OrbitronFontFamily,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = IceWhite,
+                                maxLines = 1
+                            )
+                        }
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(GarageGlassStrong)
+                                .border(1.dp, RacingGreen.copy(alpha = 0.6f), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Wifi,
+                                contentDescription = null,
+                                tint = RacingGreen,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            color = CockpitSlate.copy(alpha = 0.85f),
+                            shape = CircleShape,
+                            border = BorderStroke(1.5.dp, TrackBorderBlue),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            IconButton(
+                                onClick = { showSettingsDialog = true },
+                                modifier = Modifier.testTag("btn_open_settings")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = stringResource(R.string.btn_settings),
+                                    tint = IceWhite
+                                )
+                            }
+                        }
                     }
                 }
 
-                // Active car badge bottom-right
-                Surface(
-                    color = VoidBlack.copy(alpha = 0.72f),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.45f)),
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(start = 8.dp, bottom = 4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Right-side floating feature pills matching Reference Image 1 (Nitro, Derrapes, Personaliza)
+                if (showRightPills) {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(top = 34.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.End
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(Color(selectedColor.argb), CircleShape)
+                        HomeFeaturePill(
+                            icon = Icons.Filled.Bolt,
+                            label = stringResource(R.string.feature_nitro),
+                            onClick = onOpenGarage
                         )
-                        Text(
-                            text = "${selectedVehicle.displayName.uppercase()} · ${selectedDriver.callsign}",
-                            fontFamily = OrbitronFontFamily,
-                            fontSize = if (compactText) 10.sp else 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = IceWhite
+                        HomeFeaturePill(
+                            icon = Icons.Filled.TireRepair,
+                            label = stringResource(R.string.feature_drift),
+                            onClick = onOpenGarage
+                        )
+                        HomeFeaturePill(
+                            icon = Icons.Filled.Tune,
+                            label = stringResource(R.string.feature_customize),
+                            onClick = onOpenGarage
                         )
                     }
                 }
@@ -423,33 +404,34 @@ fun MainMenuScreen(
                     .windowInsetsPadding(safeInsets)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontalPadding, verticalPadding),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                showroomPanelContent(
+                showroomArea(
                     Modifier
                         .fillMaxWidth()
-                        .height((availableHeight * 0.42f).coerceIn(150.dp, 240.dp))
+                        .height((availableHeight * 0.40f).coerceIn(140.dp, 220.dp))
                 )
-                menuPanelContent(Modifier.fillMaxWidth())
+                menuColumn(Modifier.fillMaxWidth())
             }
         } else {
+            val panelHeight = (availableHeight - verticalPadding * 2).coerceAtLeast(0.dp)
             Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(safeInsets)
-                    .padding(horizontalPadding, verticalPadding),
+                    .padding(horizontal = horizontalPadding, vertical = verticalPadding),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                menuPanelContent(
+                menuColumn(
                     Modifier
-                        .weight(0.47f)
+                        .weight(if (narrow) 0.44f else 0.36f)
                         .verticalScroll(rememberScrollState())
                         .heightIn(min = panelHeight)
                 )
-                Spacer(Modifier.width(if (narrow) 8.dp else 16.dp))
-                showroomPanelContent(
+                Spacer(Modifier.width(if (narrow) 6.dp else 12.dp))
+                showroomArea(
                     Modifier
-                        .weight(0.53f)
+                        .weight(if (narrow) 0.56f else 0.64f)
                         .fillMaxHeight()
                 )
             }
@@ -470,31 +452,41 @@ fun MainMenuScreen(
 }
 
 @Composable
-private fun SpeedLightStreaksOverlay(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val streaks = listOf(
-            Triple(0.18f, 0.25f, 0.22f),
-            Triple(0.72f, 0.14f, 0.30f),
-            Triple(0.84f, 0.65f, 0.18f),
-            Triple(0.35f, 0.88f, 0.24f)
+private fun HomeFeaturePill(
+    icon: ImageVector,
+    label: String,
+    onClick: (() -> Unit)?
+) {
+    val shape = SlantedCardShape(8.dp)
+    Row(
+        modifier = Modifier
+            .widthIn(min = 112.dp)
+            .heightIn(min = 40.dp)
+            .clip(shape)
+            .background(GarageGlass, shape)
+            .border(1.1.dp, ElectricBlue.copy(alpha = 0.65f), shape)
+            .let { mod ->
+                if (onClick != null) mod.clickable(role = Role.Button, onClick = onClick) else mod
+            }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = IceWhite,
+            modifier = Modifier.size(16.dp)
         )
-        for ((yFrac, xFrac, lenFrac) in streaks) {
-            val y = h * yFrac
-            val xStart = w * xFrac
-            val xEnd = xStart + w * lenFrac
-            drawLine(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(Color.Transparent, ElectricBlue.copy(alpha = 0.22f), Color.Transparent),
-                    startX = xStart,
-                    endX = xEnd
-                ),
-                start = Offset(xStart, y),
-                end = Offset(xEnd, y),
-                strokeWidth = 2.5f
-            )
-        }
+        Text(
+            text = label,
+            fontFamily = OrbitronFontFamily,
+            fontStyle = FontStyle.Italic,
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
+            color = IceWhite,
+            maxLines = 1
+        )
     }
 }
 
@@ -508,155 +500,348 @@ private fun SettingsDialog(
     var soundEnabled by rememberSaveable { mutableStateOf(preferences.soundEnabled) }
     var graphicsQuality by rememberSaveable { mutableStateOf(preferences.graphicsQuality) }
     var cameraMode by rememberSaveable { mutableStateOf(preferences.preferredCameraMode) }
-    var volume by rememberSaveable { mutableStateOf(preferences.effectsVolume.toFloat()) }
+    var volume by rememberSaveable { mutableFloatStateOf(preferences.effectsVolume.toFloat()) }
     var vibration by rememberSaveable { mutableStateOf(preferences.vibrationEnabled) }
+
+    val selectedVehicle = remember(preferences.selectedVehicleId) {
+        VehicleCatalog.getVehicle(preferences.selectedVehicleId)
+    }
+    val selectedColor = remember(preferences.selectedColorId) {
+        VehicleCatalog.getPaintColor(preferences.selectedColorId)
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
-            color = AsphaltNavy,
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.5.dp, ElectricBlue.copy(alpha = 0.8f)),
+        BoxWithConstraints(
             modifier = Modifier
-                .padding(16.dp)
-                .widthIn(max = 560.dp)
-                .fillMaxWidth()
+                .fillMaxSize()
+                .background(VoidBlack)
                 .testTag("settings_dialog")
         ) {
+            NeonGarageBackdrop(
+                modifier = Modifier.fillMaxSize(),
+                flagSignCenterXFraction = 0.18f,
+                flagSignCenterYFraction = 0.34f,
+                showFlagSign = maxWidth >= 660.dp
+            )
+
+            val wide = maxWidth >= 660.dp && LocalDensity.current.fontScale <= 1.3f
+            val compact = maxWidth < 600.dp || maxHeight < 340.dp
+
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .padding(horizontal = if (compact) 12.dp else 22.dp, vertical = if (compact) 8.dp else 14.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.settings_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = ElectricBlue
-                )
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(stringResource(R.string.settings_effects_volume, volume.toInt()), color = IceWhite)
-                    Slider(
-                        value = volume,
-                        onValueChange = { volume = it },
-                        valueRange = 0f..100f,
-                        enabled = soundEnabled,
-                        modifier = Modifier.testTag("settings_effects_volume")
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(stringResource(R.string.settings_vibration), color = IceWhite)
-                        Switch(checked = vibration, onCheckedChange = { vibration = it })
-                    }
-                    Text(stringResource(R.string.settings_touch_controls), color = SilverMist)
-                    // Sound toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_sound_label),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = IceWhite,
-                            modifier = Modifier.weight(1f).padding(end = 8.dp)
-                        )
-                        Switch(
-                            checked = soundEnabled,
-                            onCheckedChange = { soundEnabled = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = VoidBlack,
-                                checkedTrackColor = ElectricBlue
-                            ),
-                            modifier = Modifier.testTag("switch_sound")
-                        )
-                    }
-
-                    // Graphics quality selector
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = stringResource(R.string.settings_graphics_label),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = IceWhite
-                        )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            GraphicsQuality.entries.forEach { q ->
-                                FilterChip(
-                                    selected = graphicsQuality == q,
-                                    onClick = { graphicsQuality = q },
-                                    label = { Text(q.label, fontSize = 12.sp) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = ElectricBlue,
-                                        selectedLabelColor = VoidBlack
-                                    ),
-                                    modifier = Modifier.testTag("chip_graphics_${q.id}")
-                                )
-                            }
-                        }
-                    }
-
-                    // Initial Camera selector
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = stringResource(R.string.settings_camera_label),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = IceWhite
-                        )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            CameraMode.entries.forEach { cam ->
-                                FilterChip(
-                                    selected = cameraMode == cam,
-                                    onClick = { cameraMode = cam },
-                                    label = { Text(cam.displayName, fontSize = 12.sp) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = ElectricBlue,
-                                        selectedLabelColor = VoidBlack
-                                    ),
-                                    modifier = Modifier.testTag("chip_camera_${cam.id}")
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Pinned action row (always visible in landscape)
-                FlowRow(
+                // Header: Brand logo + slanted "Ajustes" title pill
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        border = BorderStroke(1.dp, TrackBorderBlue),
-                        modifier = Modifier.heightIn(min = 48.dp)
-                    ) {
-                        Text(stringResource(R.string.settings_close), color = SilverMist)
+                    if (!compact) {
+                        RacingBrothersLogo(
+                            compact = true,
+                            showSubtitle = false,
+                            racingFontSize = 15.sp,
+                            brothersFontSize = 13.sp
+                        )
                     }
-                    Button(
-                        onClick = { onSave(soundEnabled, graphicsQuality, cameraMode, preferences.serverBaseUrl, volume.toInt(), vibration) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ElectricBlue,
-                            contentColor = VoidBlack
-                        ),
+                    val pillShape = SlantedCardShape(10.dp)
+                    Row(
                         modifier = Modifier
-                            .heightIn(min = 48.dp)
-                            .testTag("btn_settings_save")
+                            .clip(pillShape)
+                            .background(
+                                Brush.horizontalGradient(listOf(ElectricBlue.copy(alpha = 0.24f), GarageGlassStrong)),
+                                pillShape
+                            )
+                            .border(1.3.dp, ElectricBlue, pillShape)
+                            .padding(horizontal = 16.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = null,
+                            tint = NeonCyan,
+                            modifier = Modifier.size(18.dp)
+                        )
                         Text(
-                            text = stringResource(R.string.settings_save),
+                            text = stringResource(R.string.settings_title),
                             fontFamily = OrbitronFontFamily,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontStyle = FontStyle.Italic,
+                            fontSize = if (compact) 15.sp else 18.sp,
+                            color = IceWhite
                         )
                     }
                 }
+
+                // Body: Left 3D car showcase + Right sleek Neon Glass Settings list
+                Row(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (wide) {
+                        Vehicle3DPreview(
+                            vehicle = selectedVehicle,
+                            paintColor = selectedColor,
+                            autoRotate = false,
+                            interactiveDrag = true,
+                            initialYawDeg = 32f,
+                            initialPitchDeg = 14f,
+                            zoomScale = 1.05f,
+                            garageLighting = true,
+                            showTurntable = false,
+                            appearance = preferences.appearance,
+                            modifier = Modifier
+                                .weight(0.32f)
+                                .fillMaxHeight()
+                        )
+                    }
+
+                    NeonGlassPanel(
+                        borderColor = ElectricBlue.copy(alpha = 0.78f),
+                        cornerRadius = 18.dp,
+                        modifier = Modifier
+                            .weight(if (wide) 0.68f else 1f)
+                            .fillMaxHeight()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = if (compact) 12.dp else 18.dp, vertical = if (compact) 8.dp else 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // 1. Sound toggle row
+                            SettingsRowCard(icon = Icons.Filled.VolumeUp, label = stringResource(R.string.settings_sound_label)) {
+                                Switch(
+                                    checked = soundEnabled,
+                                    onCheckedChange = { soundEnabled = it },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = IceWhite,
+                                        checkedTrackColor = ElectricBlue,
+                                        uncheckedThumbColor = SilverMist,
+                                        uncheckedTrackColor = CockpitSlate
+                                    ),
+                                    modifier = Modifier.testTag("switch_sound")
+                                )
+                            }
+
+                            // 2. Effects volume slider row
+                            SettingsRowCard(
+                                icon = Icons.Filled.VolumeUp,
+                                label = stringResource(R.string.settings_effects_volume, volume.toInt())
+                            ) {
+                                Slider(
+                                    value = volume,
+                                    onValueChange = { volume = it },
+                                    valueRange = 0f..100f,
+                                    enabled = soundEnabled,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = IceWhite,
+                                        activeTrackColor = ElectricBlue,
+                                        inactiveTrackColor = TrackBorderBlue
+                                    ),
+                                    modifier = Modifier
+                                        .widthIn(min = 120.dp, max = 210.dp)
+                                        .testTag("settings_effects_volume")
+                                )
+                            }
+
+                            // 3. Controls row
+                            SettingsRowCard(
+                                icon = Icons.Filled.SportsEsports,
+                                label = stringResource(R.string.settings_controls_label)
+                            ) {
+                                Surface(
+                                    color = VoidBlack.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.6f))
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.settings_controls_touch),
+                                        fontFamily = OrbitronFontFamily,
+                                        fontSize = 11.sp,
+                                        color = IceWhite,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+
+                            // 4. Graphics quality row
+                            SettingsRowCard(
+                                icon = Icons.Filled.Monitor,
+                                label = stringResource(R.string.settings_graphics_label)
+                            ) {
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    GraphicsQuality.entries.forEach { q ->
+                                        FilterChip(
+                                            selected = graphicsQuality == q,
+                                            onClick = { graphicsQuality = q },
+                                            label = { Text(q.label, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = ElectricBlue,
+                                                selectedLabelColor = VoidBlack,
+                                                containerColor = VoidBlack.copy(alpha = 0.55f),
+                                                labelColor = IceWhite
+                                            ),
+                                            modifier = Modifier.testTag("chip_graphics_${q.id}")
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 5. Initial camera row
+                            SettingsRowCard(
+                                icon = Icons.Filled.Videocam,
+                                label = stringResource(R.string.settings_camera_label)
+                            ) {
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    CameraMode.entries.forEach { cam ->
+                                        FilterChip(
+                                            selected = cameraMode == cam,
+                                            onClick = { cameraMode = cam },
+                                            label = { Text(cam.displayName, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = ElectricBlue,
+                                                selectedLabelColor = VoidBlack,
+                                                containerColor = VoidBlack.copy(alpha = 0.55f),
+                                                labelColor = IceWhite
+                                            ),
+                                            modifier = Modifier.testTag("chip_camera_${cam.id}")
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 6. Vibration toggle row
+                            SettingsRowCard(
+                                icon = Icons.Filled.Vibration,
+                                label = stringResource(R.string.settings_vibration)
+                            ) {
+                                Switch(
+                                    checked = vibration,
+                                    onCheckedChange = { vibration = it },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = IceWhite,
+                                        checkedTrackColor = ElectricBlue,
+                                        uncheckedThumbColor = SilverMist,
+                                        uncheckedTrackColor = CockpitSlate
+                                    )
+                                )
+                            }
+
+                            // 7. Language indicator row
+                            SettingsRowCard(
+                                icon = Icons.Filled.Language,
+                                label = stringResource(R.string.settings_language_label)
+                            ) {
+                                Surface(
+                                    color = VoidBlack.copy(alpha = 0.6f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, ElectricBlue.copy(alpha = 0.6f))
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.settings_language_es),
+                                        fontFamily = OrbitronFontFamily,
+                                        fontSize = 11.sp,
+                                        color = IceWhite,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Bottom pinned actions: Volver + Guardar (always visible in landscape)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    NeonSlantedButton(
+                        text = stringResource(R.string.btn_back),
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        tone = NeonButtonTone.GLASS_DARK,
+                        compact = compact,
+                        onClick = onDismiss,
+                        modifier = Modifier.widthIn(min = 132.dp, max = 180.dp)
+                    )
+                    NeonSlantedButton(
+                        text = stringResource(R.string.settings_save),
+                        icon = Icons.Filled.Check,
+                        tone = NeonButtonTone.PRIMARY_CYAN,
+                        compact = compact,
+                        onClick = {
+                            onSave(
+                                soundEnabled,
+                                graphicsQuality,
+                                cameraMode,
+                                preferences.serverBaseUrl,
+                                volume.toInt(),
+                                vibration
+                            )
+                        },
+                        modifier = Modifier
+                            .widthIn(min = 152.dp, max = 210.dp)
+                            .testTag("btn_settings_save")
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SettingsRowCard(
+    icon: ImageVector,
+    label: String,
+    control: @Composable () -> Unit
+) {
+    Surface(
+        color = VoidBlack.copy(alpha = 0.48f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, TrackBorderBlue.copy(alpha = 0.85f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .align(Alignment.CenterVertically)
+                    .padding(end = 8.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = NeonCyan,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 13.sp,
+                    color = IceWhite
+                )
+            }
+            Box(modifier = Modifier.align(Alignment.CenterVertically)) {
+                control()
             }
         }
     }

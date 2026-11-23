@@ -8,6 +8,8 @@ import com.example.racingbrothers.controls.RacingInputState
 import com.example.racingbrothers.tracks.CircuitId
 import com.example.racingbrothers.tracks.CircuitTrack
 import com.example.racingbrothers.vehicles.BalancedV1Stats
+import com.example.racingbrothers.vehicles.PartColorRole
+import com.example.racingbrothers.vehicles.VehicleAppearance
 import com.example.racingbrothers.vehicles.VehicleCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,12 +26,96 @@ class RacingPhysicsAndCameraTest {
     fun `catalog provides 4 distinct vehicles and 3 distinct cartoon drivers`() {
         assertEquals(4, VehicleCatalog.vehicles.size)
         assertEquals(4, VehicleCatalog.vehicles.map { it.id }.toSet().size)
+        assertEquals(
+            listOf("vortex_rs", "apex_gtx", "titan_v8", "formula_aero"),
+            VehicleCatalog.vehicles.map { it.id }
+        )
+        assertEquals(
+            listOf("Vortex RS", "Apex GT-X", "Titan V8", "Formula Aero"),
+            VehicleCatalog.vehicles.map { it.displayName }
+        )
         assertTrue(VehicleCatalog.paintColors.size >= 6)
 
         assertEquals(3, CharacterCatalog.characters.size)
         assertEquals(3, CharacterCatalog.characters.map { it.id }.toSet().size)
         CharacterCatalog.characters.forEach { ch ->
             assertTrue("Driver ${ch.id} should have real 3D geometry parts", ch.parts.size >= 10)
+        }
+    }
+
+    @Test
+    fun `upgraded vehicles have valid sculpted 8-corner geometry, 4 symmetric wheels and distinct silhouettes`() {
+        for (vehicle in VehicleCatalog.vehicles) {
+            val wheels = vehicle.parts.filter { it.isWheel }
+            val bodyParts = vehicle.parts.filterNot { it.isWheel }
+
+            assertEquals("${vehicle.id} must have exactly 4 wheels", 4, wheels.size)
+            val frontWheels = wheels.filter { it.isFrontWheel }
+            val rearWheels = wheels.filterNot { it.isFrontWheel }
+            assertEquals("${vehicle.id} must have 2 front wheels", 2, frontWheels.size)
+            assertEquals("${vehicle.id} must have 2 rear wheels", 2, rearWheels.size)
+
+            // Front wheels must sit forward (+Z) of rear wheels and symmetric left/right on X
+            assertTrue("${vehicle.id} front wheels must have +Z > rear wheels", frontWheels.all { it.centerZ > 0.8f })
+            assertTrue("${vehicle.id} rear wheels must have -Z < -0.8f", rearWheels.all { it.centerZ < -0.8f })
+            assertEquals(0f, frontWheels.sumOf { it.centerX.toDouble() }.toFloat(), 0.001f)
+            assertEquals(0f, rearWheels.sumOf { it.centerX.toDouble() }.toFloat(), 0.001f)
+            assertTrue("${vehicle.id} wheels must touch ground cleanly (centerY ~ radius)", wheels.all { abs(it.centerY - it.height * 0.5f) < 0.02f })
+
+            // Sculpted bodywork: rich enough for distinct identity, lightweight enough for low/mid devices
+            assertTrue("${vehicle.id} should have sculpted bodywork (>= 24 parts)", bodyParts.size >= 24)
+            assertTrue("${vehicle.id} should remain lightweight (<= 65 parts)", vehicle.parts.size <= 65)
+
+            // Every vehicle must have headlights, taillights, and carbon/metallic detail roles
+            assertTrue("${vehicle.id} must have headlights", bodyParts.any { it.role == PartColorRole.HEADLIGHT })
+            assertTrue("${vehicle.id} must have taillights", bodyParts.any { it.role == PartColorRole.TAILLIGHT })
+            assertTrue("${vehicle.id} must have carbon fiber aero details", bodyParts.any { it.role == PartColorRole.CARBON_FIBER })
+
+            // Validate every sculpted 8-corner mesh part produces finite non-degenerate vertices
+            for (part in bodyParts) {
+                val corners = part.computeLocalCorners()
+                assertEquals(8, corners.size)
+                for (c in corners) {
+                    assertTrue("${vehicle.id}/${part.id} corner x must be finite", c.x.isFinite())
+                    assertTrue("${vehicle.id}/${part.id} corner y must be finite", c.y.isFinite())
+                    assertTrue("${vehicle.id}/${part.id} corner z must be finite", c.z.isFinite())
+                }
+            }
+        }
+
+        // Formula Aero specifically enables glowing neon wheel treads
+        assertTrue(VehicleCatalog.getVehicle("formula_aero").neonWheelTread)
+        assertFalse(VehicleCatalog.getVehicle("vortex_rs").neonWheelTread)
+    }
+
+    @Test
+    fun `vehicle customization appearances preserve 4 wheels and add spoilers or racing stripes cleanly`() {
+        for (vehicle in VehicleCatalog.vehicles) {
+            for (rims in 0..2) {
+                for (spoiler in 0..2) {
+                    for (decals in 0..2) {
+                        val appearance = VehicleAppearance(rims = rims, spoiler = spoiler, decals = decals)
+                        val customized = appearance.applyTo(vehicle)
+                        assertEquals(
+                            "${vehicle.id} appearance($rims,$spoiler,$decals) must preserve 4 wheels",
+                            4,
+                            customized.count { it.isWheel }
+                        )
+                        if (spoiler == 2) {
+                            assertTrue(
+                                "${vehicle.id} sport spoiler should add swan-neck wing",
+                                customized.any { it.id == "sport_wing" }
+                            )
+                        }
+                        if (decals != 0) {
+                            assertTrue(
+                                "${vehicle.id} decals=$decals should add hood racing stripes",
+                                customized.any { it.id.startsWith("stripe_hood_") }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 

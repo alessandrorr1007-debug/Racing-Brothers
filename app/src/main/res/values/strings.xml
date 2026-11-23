@@ -127,4 +127,30 @@
     <string name="btn_back_to_menu">VOLVER AL MENÚ</string>
     <string name="race_reconnecting_banner">Conexión interrumpida — reconectando con la sala…</string>
     <string name="race_opponent_disconnected">Rival desconectado — esperando reconexión…</string>
+
+    <!-- Phase 4 UI Enhancements -->
+    <string name="home_players_badge">2–4 Jugadores</string>
+    <string name="feature_nitro">Nitro</string>
+    <string name="feature_drift">Derrapes</string>
+    <string name="feature_customize">Personaliza</string>
+    <string name="app_version_label">v1.4.0</string>
+    <string name="btn_continue">Continuar</string>
+    <string name="stat_speed">Velocidad</string>
+    <string name="stat_accel">Aceleración</string>
+    <string name="stat_handling">Manejo</string>
+    <string name="stat_nitro">Nitro</string>
+    <string name="garage_select_driver">Seleccionar Personaje</string>
+    <string name="garage_tab_color">Color</string>
+    <string name="garage_btn_select">Seleccionar</string>
+    <string name="settings_language_label">Idioma</string>
+    <string name="settings_language_es">Español</string>
+    <string name="settings_controls_label">Controles</string>
+    <string name="settings_controls_touch">Botones Táctiles</string>
+    <string name="credits_dev_team_title">Equipo de Desarrollo</string>
+    <string name="credits_dev_team_name">Racing Brothers Team</string>
+    <string name="credits_dev_team_desc">Diseño, programación, gráficos y experiencia de juego.</string>
+    <string name="credits_tech_title">Tecnologías Utilizadas</string>
+    <string name="lobby_waiting_slot">Esperando jugador…</string>
+    <string name="lobby_capacity_label">Capacidad de Sala</string>
+    <string name="lobby_host_badge">(Anfitrión)</string>
 </resources>

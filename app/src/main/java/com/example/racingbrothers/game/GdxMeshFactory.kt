@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.g3d.Model
 import com.badlogic.gdx.graphics.g3d.ModelCache
 import com.badlogic.gdx.graphics.g3d.ModelInstance
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
+import com.badlogic.gdx.graphics.g3d.attributes.FloatAttribute
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.graphics.g3d.utils.shapebuilders.BoxShapeBuilder
 import com.badlogic.gdx.math.Vector3
@@ -16,6 +17,7 @@ import com.example.racingbrothers.storage.GraphicsQuality
 import com.example.racingbrothers.tracks.CircuitTrack
 import com.example.racingbrothers.tracks.CircuitId
 import com.example.racingbrothers.tracks.PropKind
+import com.example.racingbrothers.vehicles.LocalCorner3D
 import com.example.racingbrothers.vehicles.MeshBoxPart
 import com.example.racingbrothers.vehicles.PartColorRole
 import com.example.racingbrothers.vehicles.VehiclePaintColor
@@ -107,16 +109,70 @@ object GdxMeshFactory {
         return Color(r, g, b, a)
     }
 
-    private fun partColor(role: PartColorRole, paint: VehiclePaintColor): Color = when (role) {
-        PartColorRole.PRIMARY_PAINT -> argbToGdxColor(paint.argb)
-        PartColorRole.SECONDARY_TRIM -> Color(0.11f, 0.15f, 0.22f, 1f)
-        PartColorRole.GLASS_TINT -> Color(0.16f, 0.27f, 0.42f, 1f)
-        PartColorRole.HEADLIGHT -> Color(0.88f, 0.96f, 1.0f, 1f)
-        PartColorRole.TAILLIGHT -> Color(1.0f, 0.18f, 0.26f, 1f)
-        PartColorRole.TIRE_RUBBER -> Color(0.08f, 0.09f, 0.11f, 1f)
-        PartColorRole.WHEEL_RIM -> Color(0.76f, 0.82f, 0.90f, 1f)
-        PartColorRole.ACCENT_GLOW -> Color(0.0f, 0.72f, 1.0f, 1f)
+    private fun partMaterial(
+        role: PartColorRole,
+        paint: VehiclePaintColor,
+        neonAccentArgb: Long
+    ): Material = when (role) {
+        PartColorRole.PRIMARY_PAINT -> Material(
+            ColorAttribute.createDiffuse(argbToGdxColor(paint.argb)),
+            ColorAttribute.createSpecular(Color(0.86f, 0.92f, 1.0f, 1f)),
+            FloatAttribute.createShininess(44f)
+        )
+        PartColorRole.SECONDARY_TRIM -> Material(
+            ColorAttribute.createDiffuse(Color(0.11f, 0.15f, 0.22f, 1f)),
+            ColorAttribute.createSpecular(Color(0.36f, 0.44f, 0.55f, 1f)),
+            FloatAttribute.createShininess(20f)
+        )
+        PartColorRole.CARBON_FIBER -> Material(
+            ColorAttribute.createDiffuse(Color(0.08f, 0.10f, 0.14f, 1f)),
+            ColorAttribute.createSpecular(Color(0.45f, 0.52f, 0.62f, 1f)),
+            FloatAttribute.createShininess(30f)
+        )
+        PartColorRole.CHROME_METAL -> Material(
+            ColorAttribute.createDiffuse(Color(0.78f, 0.84f, 0.92f, 1f)),
+            ColorAttribute.createSpecular(Color(1.0f, 1.0f, 1.0f, 1f)),
+            FloatAttribute.createShininess(68f)
+        )
+        PartColorRole.GLASS_TINT -> Material(
+            ColorAttribute.createDiffuse(Color(0.09f, 0.17f, 0.28f, 1f)),
+            ColorAttribute.createSpecular(Color(0.92f, 0.97f, 1.0f, 1f)),
+            ColorAttribute.createEmissive(Color(0.02f, 0.06f, 0.11f, 1f)),
+            FloatAttribute.createShininess(76f)
+        )
+        PartColorRole.HEADLIGHT -> Material(
+            ColorAttribute.createDiffuse(Color(0.92f, 0.98f, 1.0f, 1f)),
+            ColorAttribute.createEmissive(Color(0.84f, 0.96f, 1.0f, 1f))
+        )
+        PartColorRole.TAILLIGHT -> Material(
+            ColorAttribute.createDiffuse(Color(1.0f, 0.16f, 0.24f, 1f)),
+            ColorAttribute.createEmissive(Color(0.96f, 0.10f, 0.18f, 1f))
+        )
+        PartColorRole.BRAKE_ACCENT -> Material(
+            ColorAttribute.createDiffuse(Color(0.94f, 0.12f, 0.20f, 1f)),
+            ColorAttribute.createSpecular(Color(0.95f, 0.56f, 0.62f, 1f)),
+            FloatAttribute.createShininess(36f)
+        )
+        PartColorRole.TIRE_RUBBER -> Material(
+            ColorAttribute.createDiffuse(Color(0.06f, 0.07f, 0.09f, 1f)),
+            ColorAttribute.createSpecular(Color(0.16f, 0.18f, 0.22f, 1f)),
+            FloatAttribute.createShininess(8f)
+        )
+        PartColorRole.WHEEL_RIM -> Material(
+            ColorAttribute.createDiffuse(Color(0.78f, 0.84f, 0.92f, 1f)),
+            ColorAttribute.createSpecular(Color(0.95f, 0.97f, 1.0f, 1f)),
+            FloatAttribute.createShininess(48f)
+        )
+        PartColorRole.ACCENT_GLOW -> {
+            val neon = argbToGdxColor(neonAccentArgb)
+            Material(
+                ColorAttribute.createDiffuse(neon),
+                ColorAttribute.createEmissive(Color(neon.r * 0.92f, neon.g * 0.92f, neon.b * 0.92f, 1f))
+            )
+        }
     }
+
+    private fun LocalCorner3D.toVector3(): Vector3 = Vector3(x, y, z)
 
     fun buildVehicleRig(
         vehicle: VehicleSpec,
@@ -127,29 +183,28 @@ object GdxMeshFactory {
         val builder = ModelBuilder()
         val disposables = mutableListOf<Model>()
 
-        // 1. Combined chassis/body model
+        // 1. Combined sculpted chassis/body model using shared 8-corner geometry & rich Phong materials
         builder.begin()
         val bodyParts = appearance.applyTo(vehicle).filter { !it.isWheel }
+        val materialCache = mutableMapOf<PartColorRole, Material>()
         for (part in bodyParts) {
-            val mat = Material(ColorAttribute.createDiffuse(partColor(part.role, paint)))
+            val mat = materialCache.getOrPut(part.role) {
+                partMaterial(part.role, paint, vehicle.neonAccentArgb)
+            }
             val node = builder.node()
             node.id = part.id
             node.translation.set(part.centerX, part.centerY, part.centerZ)
-            if (part.pitchDeg != 0f) {
-                node.rotation.setEulerAngles(0f, part.pitchDeg, 0f)
+            if (part.yawDeg != 0f || part.pitchDeg != 0f || part.rollDeg != 0f) {
+                node.rotation.setEulerAngles(part.yawDeg, part.pitchDeg, part.rollDeg)
             }
             val meshPart = builder.part(part.id, GL20.GL_TRIANGLES, ATTRS, mat)
-            val x = part.width * 0.5f
-            val y = part.height * 0.5f
-            val z = part.length * 0.5f
-            val topX = x * part.topWidthScale
-            val topZ = z * part.topLengthScale
+            val c = part.computeLocalCorners()
             BoxShapeBuilder.build(
                 meshPart,
-                Vector3(-x, -y, -z), Vector3(-topX, y, -topZ),
-                Vector3(x, -y, -z), Vector3(topX, y, -topZ),
-                Vector3(-x, -y, z), Vector3(-topX, y, topZ),
-                Vector3(x, -y, z), Vector3(topX, y, topZ)
+                c[0].toVector3(), c[3].toVector3(),
+                c[1].toVector3(), c[2].toVector3(),
+                c[4].toVector3(), c[7].toVector3(),
+                c[5].toVector3(), c[6].toVector3()
             )
         }
         val bodyModel = builder.end()
@@ -169,23 +224,79 @@ object GdxMeshFactory {
         val driverModel = builder.end()
         disposables.add(driverModel)
 
-        // 3. Shared wheel model (tire + metallic rim hub)
+        // 3. Detailed shared racing wheel models (smooth tire, optional neon tread bands, deep barrel,
+        //    accent lip ring, 10-spoke alloy star & crimson center-lock hub)
         val wheelSpecs = vehicle.parts.filter { it.isWheel }
         val wheelModels = mutableMapOf<Triple<Float, Float, Float>, Model>()
+        val tireMat = partMaterial(PartColorRole.TIRE_RUBBER, paint, vehicle.neonAccentArgb)
+        val barrelMat = partMaterial(PartColorRole.CARBON_FIBER, paint, vehicle.neonAccentArgb)
+        val rimMat = Material(
+            ColorAttribute.createDiffuse(argbToGdxColor(appearance.rimArgb)),
+            ColorAttribute.createSpecular(Color(0.96f, 0.98f, 1.0f, 1f)),
+            FloatAttribute.createShininess(54f)
+        )
+        val rimAccentColor = argbToGdxColor(appearance.rimAccentArgb)
+        val accentLipMat = Material(
+            ColorAttribute.createDiffuse(rimAccentColor),
+            ColorAttribute.createEmissive(Color(rimAccentColor.r * 0.42f, rimAccentColor.g * 0.42f, rimAccentColor.b * 0.42f, 1f))
+        )
+        val centerLockMat = partMaterial(PartColorRole.BRAKE_ACCENT, paint, vehicle.neonAccentArgb)
+        val neonTreadMat = if (vehicle.neonWheelTread) {
+            partMaterial(PartColorRole.ACCENT_GLOW, paint, vehicle.neonAccentArgb)
+        } else null
+
         val wheelRigs = wheelSpecs.map { w ->
             val wheelModel = wheelModels.getOrPut(Triple(w.width, w.height, w.length)) {
                 builder.begin()
-                val tireMat = Material(ColorAttribute.createDiffuse(Color(0.08f, 0.09f, 0.11f, 1f)))
-                val rimMat = Material(ColorAttribute.createDiffuse(argbToGdxColor(appearance.rimArgb)))
+                // Smooth 16-segment racing slick rubber
                 val tireNode = builder.node()
                 tireNode.id = "${w.id}_tire"
-                val tirePart = builder.part("${w.id}_tire", GL20.GL_TRIANGLES, ATTRS, tireMat)
-                tirePart.cylinder(w.height, w.width, w.length, 12)
+                builder.part("${w.id}_tire", GL20.GL_TRIANGLES, ATTRS, tireMat)
+                    .cylinder(w.height, w.width, w.length, 16)
 
-                val rimNode = builder.node()
-                rimNode.id = "${w.id}_rim"
-                val rimPart = builder.part("${w.id}_rim", GL20.GL_TRIANGLES, ATTRS, rimMat)
-                rimPart.cylinder(w.height * 0.56f, w.width * 1.06f, w.length * 0.56f, 10)
+                // Twin glowing neon tread rings for Formula Aero
+                if (neonTreadMat != null) {
+                    val treadOffset = w.width * 0.24f
+                    val bandDiam = w.height * 1.022f
+                    val bandWidth = w.width * 0.11f
+                    for (side in listOf(-1f, 1f)) {
+                        val bandNode = builder.node()
+                        bandNode.id = "${w.id}_neon_$side"
+                        bandNode.translation.set(0f, side * treadOffset, 0f)
+                        builder.part("${w.id}_neon_$side", GL20.GL_TRIANGLES, ATTRS, neonTreadMat)
+                            .cylinder(bandDiam, bandWidth, bandDiam, 16)
+                    }
+                }
+
+                // Outer colored accent lip ring framing the recessed wheel dish
+                val lipNode = builder.node()
+                lipNode.id = "${w.id}_lip"
+                builder.part("${w.id}_lip", GL20.GL_TRIANGLES, ATTRS, accentLipMat)
+                    .cylinder(w.height * 0.72f, w.width * 1.035f, w.length * 0.72f, 14)
+
+                // Dark recessed inner barrel for depth behind spokes
+                val barrelNode = builder.node()
+                barrelNode.id = "${w.id}_barrel"
+                builder.part("${w.id}_barrel", GL20.GL_TRIANGLES, ATTRS, barrelMat)
+                    .cylinder(w.height * 0.63f, w.width * 1.050f, w.length * 0.63f, 14)
+
+                // 5 crossing alloy bars = crisp 10-spoke GT3 motorsport wheel (clearly visible while spinning)
+                val spokeLen = w.height * 0.64f
+                val spokeThick = w.height * 0.072f
+                val spokeDepth = w.width * 1.068f
+                for (i in 0 until 5) {
+                    val spokeNode = builder.node()
+                    spokeNode.id = "${w.id}_spoke_$i"
+                    spokeNode.rotation.setEulerAngles(i * 36f, 0f, 0f)
+                    builder.part("${w.id}_spoke_$i", GL20.GL_TRIANGLES, ATTRS, rimMat)
+                        .box(spokeLen, spokeDepth, spokeThick)
+                }
+
+                // Anodized crimson center-lock racing hub nut
+                val hubNode = builder.node()
+                hubNode.id = "${w.id}_hub"
+                builder.part("${w.id}_hub", GL20.GL_TRIANGLES, ATTRS, centerLockMat)
+                    .cylinder(w.height * 0.21f, w.width * 1.095f, w.length * 0.21f, 8)
 
                 builder.end().also { disposables.add(it) }
             }
